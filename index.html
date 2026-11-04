@@ -1,1018 +1,1025 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة وتدوين المعاملات المالية</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts (Cairo & Inter) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E3B33">
+<title>دفتر المعاملات</title>
+<script>
+  // تطبيق الثيم قبل رسم الصفحة لتجنب الوميض
+  (function () {
+    var t = 'auto';
+    try { t = localStorage.getItem('ledger_theme') || 'auto'; } catch (e) {}
+    var dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --r: 16px; --font: 'IBM Plex Sans Arabic', system-ui, sans-serif; --display: 'Reem Kufi', 'IBM Plex Sans Arabic', sans-serif; }
+  html[data-theme="light"] {
+    --bg:#F1F4EF; --surface:#FFFFFF; --surface-2:#E9EEE7; --ink:#15231F; --muted:#586A63; --line:#D8E0D6;
+    --brand:#0F6B5C; --brand-ink:#FFFFFF; --brand-soft:#DCEFE9;
+    --gain:#12775A; --gain-bg:#DDF1E8; --loss:#B23A32; --loss-bg:#F8E2DF; --warn:#8F6310; --warn-bg:#F6EACB;
+    --hero:#0E3B33; --hero-ink:#E8F4EF; --hero-muted:#9CC3B8; --shadow:0 1px 2px rgba(20,35,30,.06), 0 8px 24px rgba(20,35,30,.06);
+    color-scheme: light;
+  }
+  html[data-theme="dark"] {
+    --bg:#0B1210; --surface:#131C19; --surface-2:#1A2622; --ink:#E6F0EB; --muted:#8FA39B; --line:#24332E;
+    --brand:#3CC3A5; --brand-ink:#05201A; --brand-soft:#16352E;
+    --gain:#5ED3A8; --gain-bg:#12332A; --loss:#F18B81; --loss-bg:#3A1D1A; --warn:#E6B95C; --warn-bg:#352A0F;
+    --hero:#12302A; --hero-ink:#E6F4EE; --hero-muted:#86B3A6; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin:0; font-family:var(--font); background:var(--bg); color:var(--ink); min-height:100vh; line-height:1.6; transition:background .25s, color .25s; }
+  button, input, select, textarea { font:inherit; color:inherit; }
+  button { cursor:pointer; }
+  [hidden] { display:none !important; }
+  :focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
+  .num { font-variant-numeric: tabular-nums; direction:ltr; unicode-bidi:isolate; display:inline-block; }
+  .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 
-    <style>
-        body {
-            font-family: 'Cairo', sans-serif;
-            background-color: #f8fafc;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(226, 232, 240, 0.8);
-        }
-        .badge-pending {
-            background-color: #fef3c7;
-            color: #d97706;
-            border: 1px solid #fcd34d;
-        }
-        .badge-approved {
-            background-color: #d1fae5;
-            color: #059669;
-            border: 1px solid #6ee7b7;
-        }
-        .badge-rejected {
-            background-color: #fee2e2;
-            color: #dc2626;
-            border: 1px solid #fca5a5;
-        }
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-    </style>
+  /* Buttons & inputs */
+  .btn { border:0; border-radius:12px; padding:.65rem 1.1rem; font-weight:600; font-size:.9rem; display:inline-flex; align-items:center; justify-content:center; gap:.5rem; transition:transform .1s, background .15s, opacity .15s; }
+  .btn:active { transform:scale(.98); }
+  .btn:disabled { opacity:.55; cursor:not-allowed; }
+  .btn-primary { background:var(--brand); color:var(--brand-ink); }
+  .btn-primary:hover:not(:disabled) { filter:brightness(1.08); }
+  .btn-soft { background:var(--surface-2); color:var(--ink); }
+  .btn-soft:hover:not(:disabled) { background:var(--line); }
+  .btn-danger { background:var(--loss); color:#fff; }
+  .btn-sm { padding:.35rem .75rem; font-size:.8rem; border-radius:10px; }
+  .icon-btn { width:40px; height:40px; border-radius:12px; border:1px solid var(--line); background:var(--surface); display:inline-grid; place-items:center; color:var(--ink); transition:background .15s; position:relative; }
+  .icon-btn:hover { background:var(--surface-2); }
+  .field label, .lbl { display:block; font-size:.78rem; font-weight:600; color:var(--muted); margin-bottom:.3rem; }
+  .input { width:100%; padding:.7rem .9rem; border-radius:12px; border:1px solid var(--line); background:var(--surface); transition:border-color .15s, box-shadow .15s; }
+  .input:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
+  .link { background:none; border:0; color:var(--brand); font-weight:600; font-size:.82rem; padding:0; }
+  .err { background:var(--loss-bg); color:var(--loss); padding:.6rem .8rem; border-radius:12px; font-size:.82rem; text-align:center; }
+
+  /* Header */
+  .topbar { position:sticky; top:0; z-index:30; background:color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+  .topbar-in { max-width:1100px; margin:0 auto; padding:.7rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+  .brand { display:flex; align-items:center; gap:.7rem; }
+  .brand-mark { width:40px; height:40px; border-radius:12px; background:var(--brand); color:var(--brand-ink); display:grid; place-items:center; font-size:1.1rem; }
+  .brand h1 { margin:0; font-family:var(--display); font-size:1.2rem; line-height:1.1; }
+  .brand p { margin:0; font-size:.75rem; color:var(--muted); }
+  .top-actions { display:flex; align-items:center; gap:.5rem; }
+  .dot { position:absolute; top:-5px; inset-inline-start:-5px; min-width:18px; height:18px; padding:0 4px; border-radius:9px; background:var(--warn); color:#fff; font-size:.68rem; font-weight:700; display:grid; place-items:center; }
+  .avatar { width:40px; height:40px; border-radius:50%; border:0; background:var(--brand-soft); color:var(--brand); font-weight:700; font-family:var(--display); font-size:1.05rem; }
+  .menu { position:absolute; top:calc(100% + 8px); inset-inline-start:0; width:260px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:.5rem; z-index:40; }
+  .menu-head { padding:.6rem .7rem .7rem; border-bottom:1px solid var(--line); margin-bottom:.4rem; }
+  .menu-head b { display:block; } .menu-head small { color:var(--muted); word-break:break-all; }
+  .menu button { width:100%; text-align:start; background:none; border:0; padding:.6rem .7rem; border-radius:10px; display:flex; align-items:center; gap:.7rem; font-size:.88rem; }
+  .menu button:hover { background:var(--surface-2); }
+  .menu i { width:18px; text-align:center; color:var(--muted); }
+  .menu .out { color:var(--loss); } .menu .out i { color:var(--loss); }
+
+  /* Layout */
+  main { max-width:1100px; margin:0 auto; padding:1.2rem 1rem 6rem; display:grid; gap:1.2rem; }
+  .top-grid { display:grid; gap:1.2rem; }
+  @media (min-width: 900px) { .top-grid { grid-template-columns: 1.25fr 1fr; } }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:1.2rem; }
+  .card h2 { margin:0 0 .9rem; font-size:1rem; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+
+  /* Hero balance */
+  .hero { background:var(--hero); color:var(--hero-ink); border-radius:var(--r); padding:1.4rem 1.4rem 1.2rem; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+  .hero::after { content:""; position:absolute; inset:auto 0 0 0; height:100%; background:repeating-linear-gradient(to bottom, transparent 0 33px, rgba(255,255,255,.05) 33px 34px); pointer-events:none; }
+  .hero > * { position:relative; z-index:1; }
+  .hero-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; }
+  .hero-label { color:var(--hero-muted); font-size:.85rem; font-weight:500; }
+  .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.2rem .7rem; border-radius:999px; font-size:.75rem; font-weight:700; }
+  .pill-lak { background:rgba(94,211,168,.18); color:#7DE3BC; }
+  .pill-alaik { background:rgba(241,139,129,.2); color:#FFA79E; }
+  .pill-even { background:rgba(255,255,255,.12); color:var(--hero-ink); }
+  .hero-num { font-family:var(--display); font-size:clamp(2.4rem, 8vw, 3.6rem); font-weight:700; line-height:1.15; display:flex; align-items:baseline; gap:.6rem; }
+  .hero-cur { font-size:1rem; color:var(--hero-muted); font-family:var(--font); font-weight:500; }
+  .hero-sub { color:var(--hero-muted); font-size:.82rem; min-height:1.4em; }
+  .hero-split { display:grid; grid-template-columns:repeat(3,1fr); gap:.6rem; margin-top:1.1rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,.14); }
+  .hero-split small { display:block; color:var(--hero-muted); font-size:.72rem; }
+  .hero-split b { font-size:.98rem; font-weight:600; }
+
+  /* Chart */
+  .chart { display:grid; grid-template-columns:repeat(6,1fr); gap:.5rem; height:150px; align-items:end; }
+  .col { display:flex; flex-direction:column; align-items:center; gap:.35rem; height:100%; justify-content:flex-end; }
+  .bars { display:flex; gap:4px; align-items:flex-end; height:100%; width:100%; justify-content:center; }
+  .bar { width:min(16px,40%); border-radius:5px 5px 2px 2px; min-height:3px; transition:height .5s cubic-bezier(.2,.8,.2,1); }
+  .bar.g { background:var(--gain); } .bar.l { background:var(--loss); }
+  .col small { font-size:.7rem; color:var(--muted); }
+  .legend { display:flex; gap:1rem; font-size:.75rem; color:var(--muted); margin-top:.8rem; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-inline-end:.35rem; }
+  .empty-chart { height:150px; display:grid; place-items:center; color:var(--muted); font-size:.85rem; text-align:center; }
+
+  /* Toolbar & chips */
+  .toolbar { display:grid; gap:.7rem; margin-bottom:1rem; }
+  .filters { display:grid; gap:.5rem; grid-template-columns:1fr 1fr; }
+  @media (min-width: 700px) { .filters { grid-template-columns: 1fr 160px 160px; } .filters .search { grid-column:auto; } }
+  .search { grid-column:1 / -1; position:relative; }
+  .search i { position:absolute; top:50%; transform:translateY(-50%); inset-inline-start:.9rem; color:var(--muted); font-size:.85rem; }
+  .search .input { padding-inline-start:2.4rem; }
+  .chips { display:flex; gap:.4rem; flex-wrap:wrap; }
+  .chip { border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:.3rem .85rem; font-size:.8rem; font-weight:600; color:var(--muted); display:inline-flex; gap:.4rem; align-items:center; }
+  .chip b { background:var(--surface-2); color:var(--ink); border-radius:999px; font-size:.7rem; padding:0 .45rem; }
+  .chip.on { background:var(--brand); border-color:var(--brand); color:var(--brand-ink); }
+  .chip.on b { background:rgba(255,255,255,.25); color:inherit; }
+  .banner { display:flex; justify-content:space-between; align-items:center; gap:.7rem; flex-wrap:wrap; background:var(--warn-bg); color:var(--warn); border-radius:12px; padding:.65rem .9rem; font-size:.85rem; font-weight:600; margin-bottom:1rem; }
+
+  /* Transactions */
+  .day { font-size:.75rem; font-weight:700; color:var(--muted); margin:1.1rem 0 .5rem; display:flex; align-items:center; gap:.6rem; }
+  .day::after { content:""; flex:1; height:1px; background:var(--line); }
+  .day:first-child { margin-top:0; }
+  .tx { display:grid; grid-template-columns:auto 1fr auto; gap:.8rem; align-items:center; padding:.8rem; border-radius:14px; border:1px solid var(--line); background:var(--surface); margin-bottom:.55rem; transition:border-color .15s, background .15s; }
+  .tx:hover { border-color:var(--brand); }
+  .tx-ic { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; font-size:.95rem; }
+  .tx.add .tx-ic { background:var(--gain-bg); color:var(--gain); } .tx.sub .tx-ic { background:var(--loss-bg); color:var(--loss); }
+  .tx-main { min-width:0; }
+  .tx-ref { font-weight:600; font-size:.92rem; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .tx-ref .ref { font-family:ui-monospace, Menlo, monospace; font-size:.85rem; }
+  .tx-cat { font-size:.68rem; font-weight:600; background:var(--surface-2); color:var(--muted); padding:.05rem .5rem; border-radius:999px; }
+  .tx-note { font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tx-meta { font-size:.72rem; color:var(--muted); }
+  .tx-side { text-align:end; display:grid; gap:.25rem; justify-items:end; }
+  .tx-amt { font-family:var(--display); font-weight:700; font-size:1.1rem; }
+  .tx.add .tx-amt { color:var(--gain); } .tx.sub .tx-amt { color:var(--loss); }
+  .st { font-size:.68rem; font-weight:700; padding:.1rem .55rem; border-radius:999px; }
+  .st-pending { background:var(--warn-bg); color:var(--warn); } .st-approved { background:var(--gain-bg); color:var(--gain); } .st-rejected { background:var(--loss-bg); color:var(--loss); }
+  .tx-actions { grid-column:1 / -1; display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; border-top:1px dashed var(--line); padding-top:.6rem; }
+  .ghost-ic { background:none; border:0; color:var(--muted); width:32px; height:32px; border-radius:9px; }
+  .ghost-ic:hover { background:var(--surface-2); color:var(--ink); }
+  .empty { text-align:center; padding:2.5rem 1rem; color:var(--muted); }
+  .empty i { font-size:2rem; color:var(--line); margin-bottom:.6rem; display:block; }
+  .skel { height:68px; border-radius:14px; background:linear-gradient(90deg, var(--surface-2), var(--line), var(--surface-2)); background-size:200% 100%; animation:sk 1.2s infinite; margin-bottom:.55rem; }
+  @keyframes sk { to { background-position:-200% 0; } }
+
+  /* FAB */
+  .fab { position:fixed; inset-inline-end:max(18px, env(safe-area-inset-right)); bottom:max(18px, env(safe-area-inset-bottom)); z-index:25; height:56px; padding:0 1.3rem; border-radius:28px; border:0; background:var(--brand); color:var(--brand-ink); font-weight:700; display:flex; align-items:center; gap:.6rem; box-shadow:0 10px 28px rgba(0,0,0,.3); }
+  .fab:hover { filter:brightness(1.08); }
+  .fab i { font-size:1.1rem; }
+
+  /* Modals */
+  .modal { position:fixed; inset:0; z-index:50; background:rgba(5,12,10,.6); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:1rem; }
+  .sheet { background:var(--surface); border-radius:20px; width:100%; max-width:460px; max-height:92vh; overflow:auto; padding:1.3rem; box-shadow:0 20px 60px rgba(0,0,0,.4); animation:up .22s ease-out; }
+  .sheet.wide { max-width:560px; }
+  @keyframes up { from { transform:translateY(16px); opacity:0; } }
+  @media (max-width: 640px) { .modal { align-items:flex-end; padding:0; } .sheet { border-radius:22px 22px 0 0; max-width:none; } }
+  .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
+  .sheet-head h3 { margin:0; font-size:1.05rem; }
+  .seg { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+  .seg label { cursor:pointer; }
+  .seg .opt { text-align:center; padding:.75rem; border-radius:12px; border:2px solid var(--line); font-weight:700; font-size:.9rem; transition:all .15s; }
+  .seg input:checked + .opt.g { border-color:var(--gain); background:var(--gain-bg); color:var(--gain); }
+  .seg input:checked + .opt.l { border-color:var(--loss); background:var(--loss-bg); color:var(--loss); }
+  .seg input:focus-visible + .opt { outline:2px solid var(--brand); outline-offset:2px; }
+  .amount-wrap { position:relative; }
+  .amount-wrap .input { font-family:var(--display); font-size:1.7rem; font-weight:700; padding-inline-end:4rem; text-align:start; }
+  .amount-wrap span { position:absolute; inset-inline-end:1rem; top:50%; transform:translateY(-50%); color:var(--muted); font-weight:600; font-size:.85rem; }
+  .cats { display:flex; gap:.4rem; flex-wrap:wrap; }
+  .cats label { cursor:pointer; }
+  .cats span { display:inline-block; padding:.3rem .8rem; border-radius:999px; border:1px solid var(--line); font-size:.8rem; font-weight:600; color:var(--muted); }
+  .cats input:checked + span { background:var(--brand); border-color:var(--brand); color:var(--brand-ink); }
+  .cats input:focus-visible + span { outline:2px solid var(--brand); outline-offset:2px; }
+  .stack { display:grid; gap:.9rem; }
+  .row-end { display:flex; gap:.5rem; justify-content:flex-end; margin-top:.4rem; }
+  .user-row { display:flex; align-items:center; gap:.7rem; padding:.6rem; border:1px solid var(--line); border-radius:12px; }
+  .user-row .avatar { width:36px; height:36px; font-size:.95rem; flex:none; }
+  .user-row .grow { flex:1; min-width:0; } .user-row b { display:block; font-size:.88rem; } .user-row small { color:var(--muted); font-size:.74rem; word-break:break-all; }
+  .role { font-size:.68rem; font-weight:700; padding:.05rem .5rem; border-radius:999px; background:var(--brand-soft); color:var(--brand); margin-inline-start:.4rem; }
+  .note { font-size:.76rem; color:var(--muted); }
+
+  /* Toasts */
+  .toasts { position:fixed; inset-inline-start:16px; bottom:90px; z-index:70; display:grid; gap:.5rem; max-width:calc(100vw - 32px); }
+  .toast { background:var(--ink); color:var(--bg); padding:.7rem 1rem; border-radius:12px; font-size:.85rem; font-weight:600; display:flex; align-items:center; gap:.8rem; box-shadow:var(--shadow); animation:up .2s ease-out; }
+  .toast.ok i { color:var(--gain); } .toast.bad { background:var(--loss); color:#fff; }
+  .toast button { background:none; border:0; color:var(--brand); font-weight:700; text-decoration:underline; padding:0; }
+
+  /* Auth screen */
+  .auth { position:fixed; inset:0; z-index:60; background:var(--bg); display:grid; overflow:auto; }
+  @media (min-width: 900px) { .auth { grid-template-columns:1.1fr 1fr; } }
+  .auth-brand { background:var(--hero); color:var(--hero-ink); padding:2rem; display:none; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden; }
+  .auth-brand::after { content:""; position:absolute; inset:0; background:repeating-linear-gradient(to bottom, transparent 0 39px, rgba(255,255,255,.05) 39px 40px); pointer-events:none; }
+  @media (min-width: 900px) { .auth-brand { display:flex; } }
+  .auth-brand h2 { font-family:var(--display); font-size:2.6rem; line-height:1.25; margin:0; position:relative; z-index:1; }
+  .auth-brand ul { list-style:none; padding:0; margin:0; display:grid; gap:.9rem; position:relative; z-index:1; color:var(--hero-muted); }
+  .auth-brand li i { color:#7DE3BC; margin-inline-end:.6rem; }
+  .auth-main { display:grid; place-items:center; padding:1.5rem; }
+  .auth-card { width:100%; max-width:400px; }
+  .auth-card .brand { margin-bottom:1.6rem; }
+  .auth-card h2 { font-family:var(--display); font-size:1.6rem; margin:0 0 .3rem; }
+  .auth-card > p { margin:0 0 1.3rem; color:var(--muted); font-size:.88rem; }
+  .pw { position:relative; } .pw button { position:absolute; inset-inline-end:.4rem; top:50%; transform:translateY(-50%); background:none; border:0; color:var(--muted); width:36px; height:36px; }
+  .pw .input { padding-inline-end:2.8rem; }
+  .spin { animation:spin 1s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+  @media (max-width: 520px) { .hero-split b { font-size:.85rem; } .tx { grid-template-columns:auto 1fr; } .tx-side { grid-column:1 / -1; grid-auto-flow:column; justify-content:space-between; align-items:center; text-align:start; } }
+</style>
 </head>
-<body class="min-h-screen text-slate-800 flex flex-col justify-between">
+<body>
 
-    <!-- Firebase App Configuration Scripts -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // مفاتيح الربط الخاصة بمشروعك على Firebase
-        const firebaseConfig = {
-          apiKey: "AIzaSyANa3RmTfNA0CLJWHzipy52LmaVIbs-m1I",
-          authDomain: "hsabat-e34d7.firebaseapp.com",
-          databaseURL: "https://hsabat-e34d7-default-rtdb.firebaseio.com",
-          projectId: "hsabat-e34d7",
-          storageBucket: "hsabat-e34d7.firebasestorage.app",
-          messagingSenderId: "606297002076",
-          appId: "1:606297002076:web:5b11348c81ef4be38b1699",
-          measurementId: "G-M1R389FCER"
-        };
-
-        const appId = 'hsabat-e34d7';
-        let app, db, auth;
-
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch(e) {
-            console.log("Firebase setup error:", e);
-        }
-
-        window.AppState = {
-            role: null, // 'owner' or 'submitter'
-            authenticated: false,
-            db: db,
-            auth: auth,
-            appId: appId,
-            user: null,
-            transactions: []
-        };
-
-        async function initAuth() {
-            try {
-                if (auth) {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.warn("Auth initialization fallback:", err);
-            }
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                window.AppState.user = user;
-                if (window.AppState.authenticated) {
-                    subscribeToTransactions();
-                }
-            }
-        });
-
-        initAuth();
-
-        function subscribeToTransactions() {
-            if (!db || !window.AppState.authenticated) return;
-           
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
-
-            onSnapshot(colRef, (snapshot) => {
-                const list = [];
-                snapshot.forEach((doc) => {
-                    list.push({ id: doc.id, ...doc.data() });
-                });
-               
-                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-               
-                window.AppState.transactions = list;
-                window.renderTransactions();
-                window.updateStats();
-            }, (error) => {
-                console.error("Firestore sync error:", error);
-            });
-        }
-
-        window.subscribeToTransactions = subscribeToTransactions;
-        window.dbModule = { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs };
-    </script>
-
-    <!-- Top Navigation Header -->
-    <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-30">
-        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-3 space-x-reverse">
-                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow">
-                    <i class="fa-solid fa-wallet text-xl"></i>
-                </div>
-                <div>
-                    <h1 class="font-bold text-lg leading-tight">دفتر المعاملات المالية</h1>
-                    <p class="text-xs text-indigo-200 opacity-80" id="roleSubtitle">برجاء تسجيل الدخول</p>
-                </div>
-            </div>
-
-            <div id="userInfoHeader" class="hidden flex items-center space-x-3 space-x-reverse">
-                <span id="roleBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-800 text-indigo-100 border border-indigo-700">
-                    --
-                </span>
-                <button onclick="logout()" class="text-xs bg-indigo-800 hover:bg-indigo-700 text-indigo-200 px-3 py-1.5 rounded-lg transition border border-indigo-700 flex items-center gap-1">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                    <span>خروج</span>
-                </button>
-            </div>
+<!-- ============ شاشة الدخول ============ -->
+<div id="auth" class="auth">
+  <aside class="auth-brand">
+    <div class="brand"><div class="brand-mark"><i class="fa-solid fa-book-open"></i></div><h1 style="font-family:var(--display);margin:0">دفتر المعاملات</h1></div>
+    <h2>كل معاملة مسجّلة،<br>وكل رصيد واضح.</h2>
+    <ul>
+      <li><i class="fa-solid fa-circle-check"></i>إرسال المعاملات واعتمادها من المالك</li>
+      <li><i class="fa-solid fa-circle-check"></i>رصيد صافي فوري: لك أو عليك</li>
+      <li><i class="fa-solid fa-circle-check"></i>يعمل على الجوال ويحفظ بياناتك عند انقطاع الإنترنت</li>
+    </ul>
+  </aside>
+  <div class="auth-main">
+    <div class="auth-card">
+      <div class="brand"><div class="brand-mark"><i class="fa-solid fa-book-open"></i></div><div><h1>دفتر المعاملات</h1></div></div>
+      <h2 id="authTitle">تسجيل الدخول</h2>
+      <p id="authSub">أدخل بريدك الإلكتروني وكلمة المرور.</p>
+      <form id="authForm" class="stack" novalidate>
+        <div class="field" id="nameWrap" hidden>
+          <label for="aName">الاسم</label>
+          <input id="aName" class="input" type="text" maxlength="40" autocomplete="name" placeholder="اسمك كما يظهر في المعاملات">
         </div>
-    </header>
-
-    <!-- Authentication Overlay Modal -->
-    <div id="authModal" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="glass-card bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 md:p-8 relative border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-                    <i class="fa-solid fa-lock text-2xl"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-slate-800">تسجيل الدخول للنظام</h2>
-            </div>
-
-            <form id="authForm" onsubmit="handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">اسم المستخدم</label>
-                    <input type="text" id="loginUsername"
-                           class="w-full py-3 px-4 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring focus:ring-indigo-200 outline-none transition text-sm" required placeholder="ادخل اسم المستخدم">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">كلمة المرور</label>
-                    <div class="relative">
-                        <input type="password" id="passcodeInput"
-                               class="w-full text-center text-xl tracking-widest font-mono py-3 px-4 rounded-xl border border-slate-300 focus:border-indigo-600 focus:ring focus:ring-indigo-200 outline-none transition" required placeholder="كلمة المرور">
-                        <button type="button" onclick="togglePasscodeVisibility()" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                            <i class="fa-solid fa-eye" id="passcodeEyeIcon"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div id="authError" class="hidden bg-red-50 text-red-600 p-3 rounded-xl text-xs text-center border border-red-200">
-                    اسم المستخدم أو كلمة المرور غير صحيحة!
-                </div>
-
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-200 transition duration-150">
-                    دخول للنظام
-                </button>
-            </form>
+        <div class="field">
+          <label for="aEmail">البريد الإلكتروني</label>
+          <input id="aEmail" class="input" type="email" dir="ltr" style="text-align:start" autocomplete="username" placeholder="name@example.com" required>
         </div>
+        <div class="field">
+          <label for="aPass">كلمة المرور</label>
+          <div class="pw">
+            <input id="aPass" class="input" type="password" dir="ltr" style="text-align:start" autocomplete="current-password" required>
+            <button type="button" id="aEye" aria-label="إظهار كلمة المرور"><i class="fa-solid fa-eye"></i></button>
+          </div>
+        </div>
+        <div class="field" id="confirmWrap" hidden>
+          <label for="aConfirm">تأكيد كلمة المرور</label>
+          <input id="aConfirm" class="input" type="password" dir="ltr" style="text-align:start" autocomplete="new-password">
+        </div>
+        <div id="authErr" class="err" role="alert" hidden></div>
+        <button type="submit" id="authBtn" class="btn btn-primary" style="padding:.85rem">دخول</button>
+        <div style="text-align:center"><button type="button" id="forgotBtn" class="link">نسيت كلمة المرور؟</button></div>
+      </form>
+      <p class="note" style="margin-top:1.2rem;text-align:center">لا يوجد تسجيل عام. المالك ينشئ حسابات المستخدمين.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ التطبيق ============ -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-book-open"></i></div>
+        <div><h1>دفتر المعاملات</h1><p id="hello">—</p></div>
+      </div>
+      <div class="top-actions">
+        <button id="bell" class="icon-btn" aria-label="الطلبات المعلّقة" hidden><i class="fa-regular fa-bell"></i><span class="dot" id="bellDot">0</span></button>
+        <button id="themeBtn" class="icon-btn" aria-label="تبديل الثيم"><i id="themeIc" class="fa-solid fa-circle-half-stroke"></i></button>
+        <div style="position:relative">
+          <button id="avatarBtn" class="avatar" aria-label="القائمة" aria-haspopup="true" aria-expanded="false">؟</button>
+          <div id="menu" class="menu" hidden>
+            <div class="menu-head"><b id="mName">—</b><small id="mEmail">—</small><br><span class="role" id="mRole" style="margin:0">—</span></div>
+            <button id="mUsers" hidden><i class="fa-solid fa-users-gear"></i>إدارة المستخدمين</button>
+            <button id="mExport" hidden><i class="fa-solid fa-file-csv"></i>تصدير CSV</button>
+            <button id="mPass"><i class="fa-solid fa-key"></i>تغيير كلمة المرور</button>
+            <button id="mOut" class="out"><i class="fa-solid fa-right-from-bracket"></i>تسجيل الخروج</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="top-grid">
+      <section class="hero" aria-label="الرصيد">
+        <div class="hero-top"><span class="hero-label">صافي الرصيد</span><span id="heroPill" class="pill pill-even">متعادل</span></div>
+        <div class="hero-num"><span id="heroNum" class="num">0.00</span><span class="hero-cur">د.إ</span></div>
+        <div class="hero-sub" id="heroSub"></div>
+        <div class="hero-split">
+          <div><small>إجمالي الإضافات</small><b class="num" id="sumAdd">0.00</b></div>
+          <div><small>إجمالي الخصومات</small><b class="num" id="sumSub">0.00</b></div>
+          <div><small>قيد الانتظار</small><b class="num" id="sumPend">0.00</b></div>
+        </div>
+      </section>
+      <section class="card" aria-label="الحركة الشهرية">
+        <h2>الحركة آخر 6 أشهر</h2>
+        <div id="chart"></div>
+        <div class="legend"><span><i style="background:var(--gain)"></i>إضافات</span><span><i style="background:var(--loss)"></i>خصومات</span></div>
+      </section>
     </div>
 
-    <!-- Main Content Area -->
-    <main class="max-w-5xl mx-auto px-4 py-6 w-full flex-grow space-y-6">
-
-        <!-- Header Actions: Change Password & Users List (for Owner) -->
-        <div id="userActionsBar" class="hidden flex flex-wrap justify-between items-center bg-white p-3 rounded-xl border border-slate-200 gap-2">
-            <button onclick="openChangePasswordModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-                <i class="fa-solid fa-key text-indigo-600"></i>
-                <span>تغيير كلمة المرور الخاصة بي</span>
-            </button>
-
-            <button id="btnManageUsers" onclick="openUsersModal()" class="hidden text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5 border border-indigo-200">
-                <i class="fa-solid fa-users-gear text-indigo-600"></i>
-                <span>إدارة وحفظ المستخدمين الجدد (خاص بالأدمن)</span>
-            </button>
+    <section class="card" aria-label="سجل المعاملات">
+      <h2>سجل المعاملات <span class="note" id="counter"></span></h2>
+      <div class="toolbar">
+        <div class="filters">
+          <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="q" class="input" type="search" placeholder="ابحث بالرقم أو الملاحظة أو الاسم"></div>
+          <select id="fType" class="input" aria-label="النوع"><option value="all">كل الأنواع</option><option value="add">إضافات</option><option value="subtract">خصومات</option></select>
+          <select id="fPeriod" class="input" aria-label="الفترة"><option value="all">كل الفترات</option><option value="month">هذا الشهر</option><option value="30">آخر 30 يوماً</option></select>
         </div>
+        <div class="chips" id="statusChips"></div>
+      </div>
+      <div id="bulk" class="banner" hidden>
+        <span id="bulkText"></span>
+        <button id="bulkBtn" class="btn btn-primary btn-sm"><i class="fa-solid fa-check-double"></i>اعتماد الكل</button>
+      </div>
+      <div id="list"></div>
+    </section>
+  </main>
 
-        <!-- Stats Overview Widgets -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="glass-card rounded-2xl p-4 flex items-center space-x-4 space-x-reverse border-r-4 border-emerald-500 shadow-sm">
-                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                    <i class="fa-solid fa-arrow-down text-xl"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400">لك (صافي الفائض)</span>
-                    <h3 class="text-xl font-bold text-emerald-600" id="statLakSum">0.00 <span class="text-xs font-normal">د.إ</span></h3>
-                </div>
-            </div>
+  <button id="fab" class="fab" aria-label="معاملة جديدة"><i class="fa-solid fa-plus"></i><span>معاملة جديدة</span></button>
+</div>
 
-            <div class="glass-card rounded-2xl p-4 flex items-center space-x-4 space-x-reverse border-r-4 border-rose-500 shadow-sm">
-                <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
-                    <i class="fa-solid fa-arrow-up text-xl"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400">عليك (صافي العجز)</span>
-                    <h3 class="text-xl font-bold text-rose-600" id="statAlaikSum">0.00 <span class="text-xs font-normal">د.إ</span></h3>
-                </div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-4 flex items-center space-x-4 space-x-reverse border-r-4 border-amber-500 shadow-sm">
-                <div class="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                    <i class="fa-solid fa-hourglass-half text-xl"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400">طلبات قيد الانتظار</span>
-                    <h3 class="text-xl font-bold text-amber-600" id="statPendingCount">0</h3>
-                </div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-4 flex items-center space-x-4 space-x-reverse border-r-4 border-indigo-500 shadow-sm">
-                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                    <i class="fa-solid fa-receipt text-xl"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-slate-400">إجمالي السجلات</span>
-                    <h3 class="text-xl font-bold text-slate-800" id="statTotalCount">0</h3>
-                </div>
-            </div>
+<!-- ============ نافذة معاملة ============ -->
+<div id="txModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+    <div class="sheet-head"><h3 id="txTitle">معاملة جديدة</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="txForm" class="stack" novalidate>
+      <div class="seg" role="radiogroup" aria-label="نوع المعاملة">
+        <label><input class="sr" type="radio" name="txType" value="add" checked><span class="opt g"><i class="fa-solid fa-arrow-down"></i> إضافة (لك)</span></label>
+        <label><input class="sr" type="radio" name="txType" value="subtract"><span class="opt l"><i class="fa-solid fa-arrow-up"></i> خصم (عليك)</span></label>
+      </div>
+      <div class="field">
+        <label for="txAmount">المبلغ</label>
+        <div class="amount-wrap"><input id="txAmount" class="input" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" required><span>د.إ</span></div>
+      </div>
+      <div class="field">
+        <label for="txRef">رقم المعاملة (4 محارف على الأقل)</label>
+        <div style="display:flex;gap:.5rem">
+          <input id="txRef" class="input" dir="ltr" style="text-align:start;font-family:ui-monospace,monospace" maxlength="40" autocomplete="off" required>
+          <button type="button" id="txGen" class="btn btn-soft" title="توليد رقم تلقائي"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
         </div>
+      </div>
+      <div class="field">
+        <span class="lbl">التصنيف (اختياري)</span>
+        <div class="cats" id="txCats"></div>
+      </div>
+      <div class="field">
+        <label for="txNotes">ملاحظات</label>
+        <textarea id="txNotes" class="input" rows="2" maxlength="300"></textarea>
+      </div>
+      <div id="txErr" class="err" role="alert" hidden></div>
+      <div class="row-end">
+        <button type="button" class="btn btn-soft" data-close>إلغاء</button>
+        <button type="submit" id="txBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i><span>إرسال</span></button>
+      </div>
+    </form>
+  </div>
+</div>
 
-        <!-- Layout Grid: Form & List -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<!-- ============ كلمة المرور ============ -->
+<div id="passModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="passTitle">
+    <div class="sheet-head"><h3 id="passTitle">تغيير كلمة المرور</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="passForm" class="stack" novalidate>
+      <div class="field"><label for="pCur">كلمة المرور الحالية</label><input id="pCur" class="input" type="password" dir="ltr" style="text-align:start" autocomplete="current-password"></div>
+      <div class="field"><label for="pNew">كلمة المرور الجديدة (6 أحرف على الأقل)</label><input id="pNew" class="input" type="password" dir="ltr" style="text-align:start" autocomplete="new-password"></div>
+      <div id="pErr" class="err" role="alert" hidden></div>
+      <div class="row-end"><button type="button" class="btn btn-soft" data-close>إلغاء</button><button type="submit" id="pBtn" class="btn btn-primary">حفظ</button></div>
+    </form>
+  </div>
+</div>
 
-            <!-- Transaction Form Card -->
-            <section class="lg:col-span-5">
-                <div class="glass-card bg-white rounded-2xl shadow-sm p-5 border border-slate-200 sticky top-20">
-                    <div class="flex items-center space-x-2 space-x-reverse mb-4 pb-3 border-b border-slate-100">
-                        <i class="fa-solid fa-plus-circle text-indigo-600 text-lg"></i>
-                        <h2 class="font-bold text-slate-800 text-base">إضافة معاملة جديدة</h2>
-                    </div>
-
-                    <form id="transactionForm" onsubmit="submitTransaction(event)" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-2">نوع المعاملة *</label>
-                            <div class="grid grid-cols-2 gap-3">
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="txType" value="add" checked class="peer hidden">
-                                    <div class="flex items-center justify-center p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 font-bold text-xs transition">
-                                        <i class="fa-solid fa-plus ml-1.5"></i> إضافة (+ لك)
-                                    </div>
-                                </label>
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="txType" value="subtract" class="peer hidden">
-                                    <div class="flex items-center justify-center p-2.5 rounded-xl border-2 border-slate-200 peer-checked:border-rose-600 peer-checked:bg-rose-50 peer-checked:text-rose-700 font-bold text-xs transition">
-                                        <i class="fa-solid fa-minus ml-1.5"></i> خصم (- عليك)
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ *</label>
-                            <div class="relative">
-                                <input type="number" step="0.01" min="0.1" id="inputAmount"
-                                       class="w-full text-lg font-bold pl-12 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition" required>
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">د.إ</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">رقم المعاملة (4 أرقام/محارف على الأقل) *</label>
-                            <input type="text" id="inputRef" minlength="4"
-                                   class="w-full py-2.5 px-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition font-mono text-sm" required>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">تعليق / ملاحظات</label>
-                            <textarea id="inputNotes" rows="2"
-                                      class="w-full py-2.5 px-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition text-sm"></textarea>
-                        </div>
-
-                        <button type="submit" id="btnSubmit"
-                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-100 transition flex items-center justify-center space-x-2 space-x-reverse">
-                            <i class="fa-solid fa-paper-plane"></i>
-                            <span>إرسال المبلغ والطلب</span>
-                        </button>
-                    </form>
-                </div>
-            </section>
-
-            <!-- Transactions List Section -->
-            <section class="lg:col-span-7">
-                <div class="glass-card bg-white rounded-2xl shadow-sm p-5 border border-slate-200 space-y-4">
-                    <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                        <div class="flex items-center space-x-2 space-x-reverse">
-                            <i class="fa-solid fa-list-check text-indigo-600"></i>
-                            <h2 class="font-bold text-slate-800 text-base">سجل المعاملات اليومية</h2>
-                        </div>
-                        <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-bold" id="recordCounter">
-                            0 معاملة
-                        </span>
-                    </div>
-
-                    <div id="transactionsList" class="space-y-3">
-                        <!-- Dynamic content -->
-                    </div>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <!-- Modal for Profile / Change Password -->
-    <div id="changePasswordModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-user-gear text-indigo-600 ml-1.5"></i> تعديل كلمة المرور الخاصة بي</h3>
-                <button onclick="closeChangePasswordModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-           
-            <form onsubmit="handleChangePassword(event)" class="space-y-3">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور الجديدة</label>
-                    <input type="password" id="newPasscodeInput" class="w-full py-2 px-3 border border-slate-300 rounded-xl text-center font-mono text-lg focus:ring-2 focus:ring-indigo-200 outline-none" required placeholder="كلمة المرور الجديدة">
-                </div>
-                <div class="flex justify-end space-x-2 space-x-reverse pt-2">
-                    <button type="button" onclick="closeChangePasswordModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">إلغاء</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">حفظ التغيير</button>
-                </div>
-            </form>
-        </div>
+<!-- ============ المستخدمون ============ -->
+<div id="usersModal" class="modal" data-modal hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="usersTitle">
+    <div class="sheet-head"><h3 id="usersTitle">إدارة المستخدمين</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="userForm" class="stack card" style="box-shadow:none;background:var(--surface-2);border:0" novalidate>
+      <b style="font-size:.88rem">إضافة مستخدم</b>
+      <div style="display:grid;gap:.5rem;grid-template-columns:1fr 1fr">
+        <input id="uName" class="input" placeholder="الاسم" maxlength="40" autocomplete="off">
+        <select id="uRole" class="input" aria-label="الدور"><option value="submitter">مُدخل بيانات</option><option value="owner">مالك (أدمن)</option></select>
+        <input id="uEmail" class="input" type="email" dir="ltr" style="text-align:start" placeholder="البريد الإلكتروني" autocomplete="off">
+        <input id="uPass" class="input" type="password" dir="ltr" style="text-align:start" placeholder="كلمة مرور مؤقتة (6+)" autocomplete="new-password">
+      </div>
+      <div id="uErr" class="err" role="alert" hidden></div>
+      <div class="row-end" style="margin:0"><button type="submit" id="uBtn" class="btn btn-primary btn-sm"><i class="fa-solid fa-user-plus"></i>إضافة</button></div>
+    </form>
+    <div style="margin-top:1rem">
+      <div class="lbl">المستخدمون الحاليون</div>
+      <div id="usersList" class="stack" style="gap:.5rem"></div>
+      <p class="note" style="margin-top:.8rem">حذف المستخدم يسحب صلاحيته فوراً. لحذف حساب الدخول نهائياً استخدم Firebase Console ← Authentication.</p>
     </div>
+  </div>
+</div>
 
-    <!-- Modal for Managing Users (Owner Only) -->
-    <div id="usersModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-users-gear text-indigo-600 ml-1"></i> إدارة حسابات المستخدمين</h3>
-                <button onclick="closeUsersModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-           
-            <!-- Add New User Form -->
-            <form onsubmit="handleAddNewUser(event)" class="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-3">
-                <h4 class="font-bold text-xs text-indigo-900">إضافة مستخدم جديد للنظام</h4>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="newUserName" placeholder="اسم المستخدم" class="py-2 px-3 border rounded-xl text-xs bg-white outline-none" required>
-                    <input type="password" id="newUserPin" placeholder="كلمة المرور" class="py-2 px-3 border rounded-xl text-xs bg-white outline-none font-mono" required>
-                </div>
-                <div class="flex justify-between items-center">
-                    <label class="flex items-center space-x-1.5 space-x-reverse text-xs text-slate-700">
-                        <input type="checkbox" id="newUserIsOwner" class="rounded text-indigo-600">
-                        <span>منح صلاحيات أدمن (مالك)</span>
-                    </label>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">إضافة الحساب</button>
-                </div>
-            </form>
+<!-- ============ تأكيد ============ -->
+<div id="confirmModal" class="modal" data-modal hidden style="z-index:65">
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle" style="max-width:380px">
+    <h3 id="cfTitle" style="margin:0 0 .4rem"></h3>
+    <p id="cfMsg" class="note" style="font-size:.88rem;margin:0 0 1rem"></p>
+    <div class="row-end"><button id="cfCancel" class="btn btn-soft">إلغاء</button><button id="cfOk" class="btn btn-primary">تأكيد</button></div>
+  </div>
+</div>
 
-            <div class="border-t pt-2">
-                <h4 class="font-bold text-xs text-slate-700 mb-2">قائمة المستخدمين الحاليين</h4>
-                <div id="usersListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    <!-- Dynamic Content -->
-                </div>
-            </div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
 
-            <div class="flex justify-end pt-2">
-                <button type="button" onclick="closeUsersModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">إغلاق</button>
-            </div>
-        </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
+  sendPasswordResetEmail, updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore,
+  collection, doc, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, onSnapshot, query, where, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+/* ---------- مفاتيح الربط بقاعدة البيانات (Firebase) ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyANa3RmTfNA0CLJWHzipy52LmaVIbs-m1I",
+  authDomain: "hsabat-e34d7.firebaseapp.com",
+  databaseURL: "https://hsabat-e34d7-default-rtdb.firebaseio.com",
+  projectId: "hsabat-e34d7",
+  storageBucket: "hsabat-e34d7.firebasestorage.app",
+  messagingSenderId: "606297002076",
+  appId: "1:606297002076:web:5b11348c81ef4be38b1699",
+  measurementId: "G-M1R389FCER"
+};
+
+const APP_ID = 'hsabat-e34d7';
+const BASE = ['artifacts', APP_ID, 'public', 'data'];
+const MIN_PASS = 6;
+const CATEGORIES = ['تحويل', 'دفعة', 'سلفة', 'سداد', 'أخرى'];
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+let db;
+try { db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch (e) { db = getFirestore(app); }
+
+const txCol = () => collection(db, ...BASE, 'transactions');
+const txRef = (id) => doc(db, ...BASE, 'transactions', id);
+const usersCol = () => collection(db, ...BASE, 'users');
+const userRef = (uid) => doc(db, ...BASE, 'users', uid);
+const setupRef = () => doc(db, ...BASE, 'meta', 'setup');
+
+const state = {
+  user: null, profile: null, transactions: [], unsub: null, loaded: false,
+  authMode: 'login', settingUp: false, editingId: null, confirmDone: null,
+  f: { status: 'all', type: 'all', period: 'all', q: '' }, shownNet: 0
+};
+const isOwner = () => state.profile?.role === 'owner';
+
+/* ---------- أدوات ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const toCents = (v) => Math.round(Number(v) * 100);
+const fmt = (c) => (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function parseAmount(raw) {
+  const s = String(raw).trim()
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[،,]/g, '.').replace(/[٫]/g, '.').replace(/\s/g, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return NaN;
+  return Math.round(parseFloat(s) * 100) / 100;
+}
+
+function toast(text, type = 'ok', action) {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<i class="fa-solid ${type === 'bad' ? 'fa-triangle-exclamation' : 'fa-circle-check'}"></i><span>${esc(text)}</span>`;
+  if (action) {
+    const b = document.createElement('button');
+    b.textContent = action.label;
+    b.onclick = () => { action.run(); el.remove(); };
+    el.appendChild(b);
+  }
+  $('toasts').appendChild(el);
+  setTimeout(() => el.remove(), action ? 6000 : 3200);
+}
+
+function showErr(id, msg) { const el = $(id); el.textContent = msg || ''; el.hidden = !msg; }
+
+function authMessage(err) {
+  const map = {
+    'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+    'auth/wrong-password': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+    'auth/user-not-found': 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+    'auth/invalid-email': 'البريد الإلكتروني غير صالح.',
+    'auth/email-already-in-use': 'هذا البريد مسجّل مسبقاً.',
+    'auth/weak-password': `كلمة المرور ضعيفة (${MIN_PASS} أحرف على الأقل).`,
+    'auth/too-many-requests': 'محاولات كثيرة. انتظر قليلاً ثم أعد المحاولة.',
+    'auth/network-request-failed': 'تعذر الاتصال. تحقق من الإنترنت.',
+    'auth/operation-not-allowed': 'فعّل تسجيل الدخول بالبريد وكلمة المرور من Firebase Console ← Authentication ← Sign-in method.',
+    'auth/requires-recent-login': 'سجّل الدخول من جديد ثم أعد المحاولة.',
+    'auth/user-disabled': 'هذا الحساب معطّل.',
+    'permission-denied': 'لا تملك صلاحية لهذه العملية. تأكد من نشر قواعد Firestore.'
+  };
+  return map[err?.code] || 'حدث خطأ غير متوقع. حاول مرة أخرى.';
+}
+
+/* ---------- الثيم ---------- */
+function applyTheme(mode) {
+  try { localStorage.setItem('ledger_theme', mode); } catch (e) {}
+  const dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  $('themeIc').className = 'fa-solid ' + ({ auto: 'fa-circle-half-stroke', light: 'fa-sun', dark: 'fa-moon' }[mode]);
+  $('themeBtn').title = { auto: 'الثيم: تلقائي', light: 'الثيم: نهاري', dark: 'الثيم: ليلي' }[mode];
+  document.querySelector('meta[name=theme-color]').content = dark ? '#0B1210' : '#0E3B33';
+}
+function currentThemeMode() { try { return localStorage.getItem('ledger_theme') || 'auto'; } catch (e) { return 'auto'; } }
+$('themeBtn').onclick = () => {
+  const next = { auto: 'light', light: 'dark', dark: 'auto' }[currentThemeMode()];
+  applyTheme(next);
+  toast({ auto: 'ثيم تلقائي (حسب الجهاز)', light: 'الثيم النهاري', dark: 'الثيم الليلي' }[next]);
+};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (currentThemeMode() === 'auto') applyTheme('auto'); });
+applyTheme(currentThemeMode());
+
+/* ---------- النوافذ ---------- */
+function openModal(id) {
+  const m = $(id); m.hidden = false; document.body.style.overflow = 'hidden';
+  setTimeout(() => m.querySelector('input:not([type=radio]):not([type=hidden]), textarea, button.btn-primary')?.focus(), 60);
+}
+function closeModal(id) {
+  if (id === 'confirmModal' && state.confirmDone) { state.confirmDone(); return; }
+  $(id).hidden = true;
+  if (![...document.querySelectorAll('[data-modal]')].some(m => !m.hidden)) document.body.style.overflow = '';
+}
+document.querySelectorAll('[data-modal]').forEach(m => {
+  m.addEventListener('mousedown', e => { if (e.target === m) closeModal(m.id); });
+  m.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(m.id)));
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = [...document.querySelectorAll('[data-modal]')].filter(m => !m.hidden).pop();
+  if (open) closeModal(open.id); else closeMenu();
+});
+
+function confirmDialog({ title, message, okText = 'تأكيد', danger = false }) {
+  return new Promise(resolve => {
+    $('cfTitle').textContent = title; $('cfMsg').textContent = message;
+    const ok = $('cfOk'); ok.textContent = okText; ok.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    const done = (v) => { state.confirmDone = null; closeModal('confirmModal'); resolve(v); };
+    state.confirmDone = () => done(false);
+    ok.onclick = () => done(true); $('cfCancel').onclick = () => done(false);
+    openModal('confirmModal');
+  });
+}
+
+/* ---------- القائمة ---------- */
+function closeMenu() { $('menu').hidden = true; $('avatarBtn').setAttribute('aria-expanded', 'false'); }
+$('avatarBtn').onclick = (e) => { e.stopPropagation(); const h = $('menu').hidden; $('menu').hidden = !h; $('avatarBtn').setAttribute('aria-expanded', String(h)); };
+document.addEventListener('click', (e) => { if (!e.target.closest('#menu')) closeMenu(); });
+$('mOut').onclick = () => { closeMenu(); signOut(auth); };
+$('mPass').onclick = () => { closeMenu(); $('passForm').reset(); showErr('pErr'); openModal('passModal'); };
+$('mUsers').onclick = () => { closeMenu(); openUsersModal(); };
+$('mExport').onclick = () => { closeMenu(); exportCsv(); };
+
+/* ---------- المصادقة ---------- */
+function setAuthMode(mode) {
+  state.authMode = mode;
+  const setup = mode === 'setup';
+  $('authTitle').textContent = setup ? 'إعداد النظام' : 'تسجيل الدخول';
+  $('authSub').textContent = setup ? 'أنشئ حساب المالك الأول. هذا الحساب سيدير المستخدمين والمعاملات.' : 'أدخل بريدك الإلكتروني وكلمة المرور.';
+  $('authBtn').textContent = setup ? 'إنشاء حساب المالك' : 'دخول';
+  $('nameWrap').hidden = !setup; $('confirmWrap').hidden = !setup; $('forgotBtn').hidden = setup;
+  $('aPass').autocomplete = setup ? 'new-password' : 'current-password';
+  showErr('authErr');
+}
+
+async function checkSetup() {
+  try { setAuthMode((await getDoc(setupRef())).exists() ? 'login' : 'setup'); }
+  catch (e) { console.warn(e); setAuthMode('login'); }
+}
+
+function showAuth() {
+  if (state.unsub) { state.unsub(); state.unsub = null; }
+  state.user = null; state.profile = null; state.transactions = []; state.loaded = false;
+  $('app').hidden = true; $('auth').hidden = false;
+  $('aPass').value = ''; $('aConfirm').value = '';
+  checkSetup();
+}
+
+$('aEye').onclick = () => {
+  const i = $('aPass'); const hide = i.type === 'password';
+  i.type = hide ? 'text' : 'password';
+  $('aEye').innerHTML = `<i class="fa-solid ${hide ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
+};
+
+$('authForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); showErr('authErr');
+  const email = $('aEmail').value.trim(), pass = $('aPass').value;
+  if (!email || !pass) return showErr('authErr', 'أدخل البريد الإلكتروني وكلمة المرور.');
+  const btn = $('authBtn'); btn.disabled = true;
+  const label = btn.textContent; btn.innerHTML = '<i class="fa-solid fa-spinner spin"></i>';
+  try {
+    if (state.authMode === 'setup') await doSetup(email, pass);
+    else await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    showErr('authErr', err.message?.startsWith('UI:') ? err.message.slice(3) : authMessage(err));
+  } finally { btn.disabled = false; btn.textContent = state.authMode === 'setup' ? 'إنشاء حساب المالك' : (label.includes('spin') ? 'دخول' : label); }
+});
+
+async function doSetup(email, pass) {
+  const name = $('aName').value.trim();
+  if (name.length < 2) throw new Error('UI:أدخل اسمك (حرفان على الأقل).');
+  if (pass.length < MIN_PASS) throw new Error(`UI:كلمة المرور يجب ألا تقل عن ${MIN_PASS} أحرف.`);
+  if (pass !== $('aConfirm').value) throw new Error('UI:كلمتا المرور غير متطابقتين.');
+  state.settingUp = true;
+  let cred;
+  try {
+    cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: name });
+    const batch = writeBatch(db);
+    batch.set(setupRef(), { ownerUid: cred.user.uid, createdAt: Date.now() });
+    batch.set(userRef(cred.user.uid), { name, email: cred.user.email, role: 'owner', createdAt: Date.now() });
+    await batch.commit();
+  } catch (err) {
+    if (cred?.user) { try { await cred.user.delete(); } catch (e) {} }
+    state.settingUp = false;
+    if (err.code === 'permission-denied') throw new Error('UI:تم إعداد النظام مسبقاً. سجّل الدخول بحسابك.');
+    throw err;
+  }
+  state.settingUp = false;
+  await loadSession(auth.currentUser);
+}
+
+$('forgotBtn').onclick = async () => {
+  const email = $('aEmail').value.trim();
+  if (!email) return showErr('authErr', 'اكتب بريدك الإلكتروني أولاً ثم اضغط "نسيت كلمة المرور".');
+  try { await sendPasswordResetEmail(auth, email); showErr('authErr'); toast('أُرسل رابط إعادة التعيين إلى بريدك'); }
+  catch (err) { showErr('authErr', authMessage(err)); }
+};
+
+onAuthStateChanged(auth, async (user) => {
+  if (state.settingUp) return;
+  if (!user) return showAuth();
+  await loadSession(user);
+});
+
+async function loadSession(user) {
+  try {
+    const snap = await getDoc(userRef(user.uid));
+    if (!snap.exists()) {
+      await signOut(auth);
+      showErr('authErr', 'حسابك غير مفعّل. تواصل مع المالك ليضيفك.');
+      return;
+    }
+    state.user = user; state.profile = snap.data();
+    startApp();
+  } catch (err) {
+    console.error(err);
+    await signOut(auth);
+    showErr('authErr', authMessage(err));
+  }
+}
+
+function startApp() {
+  const p = state.profile, owner = isOwner();
+  $('auth').hidden = true; $('app').hidden = false;
+  $('hello').textContent = `مرحباً، ${p.name}`;
+  $('avatarBtn').textContent = (p.name || '؟').trim().charAt(0);
+  $('mName').textContent = p.name; $('mEmail').textContent = p.email || state.user.email;
+  $('mRole').textContent = owner ? 'مالك (أدمن)' : 'مُدخل بيانات';
+  $('mUsers').hidden = !owner; $('mExport').hidden = !owner;
+  $('fab').querySelector('span').textContent = owner ? 'معاملة جديدة' : 'إرسال معاملة';
+  state.f = { status: 'all', type: 'all', period: 'all', q: '' };
+  $('q').value = ''; $('fType').value = 'all'; $('fPeriod').value = 'all';
+  state.shownNet = 0; state.loaded = false; renderAll();
+
+  if (state.unsub) state.unsub();
+  const q = owner ? txCol() : query(txCol(), where('uid', '==', state.user.uid));
+  state.unsub = onSnapshot(q, (snap) => {
+    const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    state.transactions = list; state.loaded = true; renderAll();
+  }, (err) => { console.error(err); toast(authMessage(err), 'bad'); state.loaded = true; renderAll(); });
+}
+
+/* ---------- الحسابات والعرض ---------- */
+const approvedNet = () => {
+  let net = 0, add = 0, sub = 0, pend = 0;
+  for (const t of state.transactions) {
+    const c = toCents(t.amount || 0), st = t.status || 'pending';
+    if (st === 'approved') { if (t.type === 'subtract') { sub += c; net -= c; } else { add += c; net += c; } }
+    else if (st === 'pending') pend += c * (t.type === 'subtract' ? -1 : 1);
+  }
+  return { net, add, sub, pend };
+};
+
+function animateNumber(el, from, to) {
+  if (reduceMotion || from === to) { el.textContent = fmt(Math.abs(to)); return; }
+  const t0 = performance.now(), dur = 700;
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(Math.abs(Math.round(from + (to - from) * e)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function renderHero() {
+  const { net, add, sub, pend } = approvedNet();
+  animateNumber($('heroNum'), state.shownNet, net); state.shownNet = net;
+  const pill = $('heroPill');
+  if (net > 0) { pill.className = 'pill pill-lak'; pill.textContent = 'لك'; }
+  else if (net < 0) { pill.className = 'pill pill-alaik'; pill.textContent = 'عليك'; }
+  else { pill.className = 'pill pill-even'; pill.textContent = 'متعادل'; }
+  $('sumAdd').textContent = fmt(add); $('sumSub').textContent = fmt(sub);
+  $('sumPend').textContent = (pend < 0 ? '-' : '') + fmt(Math.abs(pend));
+  const approved = state.transactions.filter(t => t.status === 'approved').length;
+  $('heroSub').textContent = approved ? `محسوب من ${approved} معاملة مقبولة` : (state.loaded ? 'لا توجد معاملات مقبولة بعد' : '');
+}
+
+function renderChart() {
+  const now = new Date(), months = [];
+  for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('ar', { month: 'short' }), g: 0, l: 0 }); }
+  for (const t of state.transactions) {
+    if (t.status !== 'approved' || !t.createdAt) continue;
+    const d = new Date(t.createdAt), m = months.find(x => x.key === `${d.getFullYear()}-${d.getMonth()}`);
+    if (m) { if (t.type === 'subtract') m.l += toCents(t.amount); else m.g += toCents(t.amount); }
+  }
+  const max = Math.max(1, ...months.map(m => Math.max(m.g, m.l)));
+  if (months.every(m => !m.g && !m.l)) { $('chart').innerHTML = `<div class="empty-chart">ستظهر هنا حركة الإضافات والخصومات<br>بعد اعتماد أول معاملة.</div>`; return; }
+  $('chart').innerHTML = `<div class="chart">${months.map(m => `
+    <div class="col" title="إضافات ${fmt(m.g)} — خصومات ${fmt(m.l)}">
+      <div class="bars"><div class="bar g" style="height:${Math.round(m.g / max * 100)}%"></div><div class="bar l" style="height:${Math.round(m.l / max * 100)}%"></div></div>
+      <small>${esc(m.label)}</small></div>`).join('')}</div>`;
+}
+
+const STATUS = { pending: 'قيد الانتظار', approved: 'مقبول', rejected: 'مرفوض' };
+
+function periodOk(t) {
+  const p = state.f.period; if (p === 'all') return true;
+  if (!t.createdAt) return false;
+  const d = new Date(t.createdAt), n = new Date();
+  if (p === 'month') return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
+  return Date.now() - t.createdAt <= 30 * 864e5;
+}
+
+function filtered(ignoreStatus) {
+  const { status, type, q } = state.f, qq = q.trim().toLowerCase();
+  return state.transactions.filter(t => {
+    if (!ignoreStatus && status !== 'all' && (t.status || 'pending') !== status) return false;
+    if (type !== 'all' && (t.type === 'subtract' ? 'subtract' : 'add') !== type) return false;
+    if (!periodOk(t)) return false;
+    if (qq && ![t.reference, t.notes, t.submittedBy, t.category].some(v => String(v || '').toLowerCase().includes(qq))) return false;
+    return true;
+  });
+}
+
+function renderChips() {
+  const base = filtered(true);
+  const count = (s) => s === 'all' ? base.length : base.filter(t => (t.status || 'pending') === s).length;
+  $('statusChips').innerHTML = [['all', 'الكل'], ['pending', 'قيد الانتظار'], ['approved', 'مقبول'], ['rejected', 'مرفوض']]
+    .map(([k, l]) => `<button class="chip ${state.f.status === k ? 'on' : ''}" data-s="${k}">${l}<b>${count(k)}</b></button>`).join('');
+}
+
+function dayKey(ts) { if (!ts) return 'x'; const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function dayLabel(ts) {
+  if (!ts) return 'بدون تاريخ';
+  const k = dayKey(ts), n = new Date();
+  if (k === dayKey(n.getTime())) return 'اليوم';
+  if (k === dayKey(n.getTime() - 864e5)) return 'أمس';
+  return new Date(ts).toLocaleDateString('ar', { weekday: 'long', day: 'numeric', month: 'long', year: new Date(ts).getFullYear() === n.getFullYear() ? undefined : 'numeric' });
+}
+
+function txHTML(t) {
+  const sub = t.type === 'subtract', st = t.status || 'pending', id = esc(t.id);
+  const time = t.createdAt ? new Date(t.createdAt).toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' }) : (t.time || '');
+  const own = t.uid && t.uid === state.user?.uid;
+  let actions = '';
+  if (isOwner()) {
+    actions = `${st !== 'approved' ? `<button class="btn btn-primary btn-sm" data-a="approve" data-id="${id}"><i class="fa-solid fa-check"></i>موافقة</button>` : ''}
+      ${st !== 'rejected' ? `<button class="btn btn-soft btn-sm" data-a="reject" data-id="${id}"><i class="fa-solid fa-xmark"></i>رفض</button>` : ''}
+      <button class="ghost-ic" data-a="edit" data-id="${id}" aria-label="تعديل"><i class="fa-solid fa-pen"></i></button>
+      <button class="ghost-ic" data-a="delete" data-id="${id}" aria-label="حذف"><i class="fa-solid fa-trash-can"></i></button>`;
+  } else if (own && st === 'pending') {
+    actions = `<button class="btn btn-soft btn-sm" data-a="withdraw" data-id="${id}"><i class="fa-solid fa-rotate-left"></i>سحب الطلب</button>`;
+  }
+  return `<article class="tx ${sub ? 'sub' : 'add'}">
+    <div class="tx-ic"><i class="fa-solid ${sub ? 'fa-arrow-up' : 'fa-arrow-down'}"></i></div>
+    <div class="tx-main">
+      <div class="tx-ref"><span class="ref">${esc(t.reference)}</span>${t.category ? `<span class="tx-cat">${esc(t.category)}</span>` : ''}</div>
+      ${t.notes ? `<div class="tx-note" title="${esc(t.notes)}">${esc(t.notes)}</div>` : ''}
+      <div class="tx-meta">${esc(t.submittedBy || 'غير محدد')} · ${esc(time)}</div>
     </div>
-
-    <!-- Modal for Editing Transaction (Owner Only) -->
-    <div id="editModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800">تعديل المعاملة (المالك)</h3>
-                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-           
-            <form onsubmit="saveTransactionEdit(event)" class="space-y-3">
-                <input type="hidden" id="editTxId">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">المبلغ</label>
-                    <input type="number" step="0.01" id="editAmount" class="w-full py-2 px-3 border rounded-xl" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">رقم المعاملة (4 أرقام/محارف على الأقل)</label>
-                    <input type="text" id="editRef" minlength="4" class="w-full py-2 px-3 border rounded-xl" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 mb-1">ملاحظات / تعليق</label>
-                    <textarea id="editNotes" rows="2" class="w-full py-2 px-3 border rounded-xl"></textarea>
-                </div>
-                <div class="flex justify-end space-x-2 space-x-reverse pt-2">
-                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold">إلغاء</button>
-                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700">حفظ التغييرات</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Custom Toast Message Notification -->
-    <div id="toast" class="fixed bottom-5 left-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
-        <div id="toastContent" class="bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 space-x-reverse text-xs font-bold">
-            <i id="toastIcon" class="fa-solid fa-circle-info"></i>
-            <span id="toastText">رسالة جديدة</span>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-400 mt-6">
-        <p>نظام التدوين والتزامن المالي الخاص &copy; 2026</p>
-    </footer>
-
-    <!-- Main Logic Script -->
-    <script>
-        function togglePasscodeVisibility() {
-            const input = document.getElementById('passcodeInput');
-            const icon = document.getElementById('passcodeEyeIcon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
-            } else {
-                input.type = 'password';
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
-            }
-        }
-
-        // Login Handler with Firestore User Database verification
-        async function handleLogin(e) {
-            e.preventDefault();
-            const usernameInput = document.getElementById('loginUsername').value.trim();
-            const pinInput = document.getElementById('passcodeInput').value.trim();
-            const errorEl = document.getElementById('authError');
-
-            if (!usernameInput || !pinInput) {
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-                const { doc, getDoc, setDoc } = window.dbModule;
-
-                let userRole = 'submitter';
-                let validLogin = false;
-
-                // التحقق من وجود حساب الأدمن الافتراضي (المالك)
-                if (usernameInput === 'المالك' || usernameInput.toLowerCase() === 'admin') {
-                    if (pinInput === '99990ad') {
-                        validLogin = true;
-                        userRole = 'owner';
-                    }
-                }
-
-                if (db && !validLogin) {
-                    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', usernameInput);
-                    const userSnap = await getDoc(userDocRef);
-
-                    if (userSnap.exists()) {
-                        const userData = userSnap.data();
-                        if (userData.pin === pinInput) {
-                            validLogin = true;
-                            userRole = userData.role || 'submitter';
-                        }
-                    }
-                } else if (!db && !validLogin) {
-                    // Fallback محلي للاختبار
-                    if (pinInput === '1234') {
-                        validLogin = true;
-                        userRole = 'submitter';
-                    }
-                }
-
-                if (!validLogin) {
-                    errorEl.classList.remove('hidden');
-                    return;
-                }
-
-                errorEl.classList.add('hidden');
-                window.AppState.role = userRole;
-                window.AppState.currentUsername = usernameInput;
-                window.AppState.authenticated = true;
-
-                document.getElementById('authModal').classList.add('hidden');
-                document.getElementById('userInfoHeader').classList.remove('hidden');
-                document.getElementById('userActionsBar').classList.remove('hidden');
-
-                const roleBadge = document.getElementById('roleBadge');
-                const roleSubtitle = document.getElementById('roleSubtitle');
-                const btnManageUsers = document.getElementById('btnManageUsers');
-
-                if (window.AppState.role === 'owner') {
-                    roleBadge.textContent = 'مالك النظام (أدمن)';
-                    roleBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-700 text-emerald-100 border border-emerald-600';
-                    roleSubtitle.textContent = `مرحباً بك، ${usernameInput}`;
-                    btnManageUsers.classList.remove('hidden');
-                } else {
-                    roleBadge.textContent = 'مُدخل بيانات';
-                    roleBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-indigo-800 text-indigo-100 border border-indigo-700';
-                    roleSubtitle.textContent = `مرحباً بك، ${usernameInput}`;
-                    btnManageUsers.classList.add('hidden');
-                }
-
-                showToast(`تم تسجيل الدخول بنجاح كـ (${usernameInput})`, 'success');
-
-                if (window.subscribeToTransactions) {
-                    window.subscribeToTransactions();
-                }
-
-            } catch (err) {
-                console.error("Login error:", err);
-                errorEl.classList.remove('hidden');
-            }
-        }
-
-        function logout() {
-            window.AppState.authenticated = false;
-            window.AppState.role = null;
-            window.AppState.currentUsername = null;
-            document.getElementById('authModal').classList.remove('hidden');
-            document.getElementById('userInfoHeader').classList.add('hidden');
-            document.getElementById('userActionsBar').classList.add('hidden');
-            document.getElementById('loginUsername').value = '';
-            document.getElementById('passcodeInput').value = '';
-        }
-
-        // Change Password Modal Controls
-        function openChangePasswordModal() {
-            document.getElementById('changePasswordModal').classList.remove('hidden');
-        }
-
-        function closeChangePasswordModal() {
-            document.getElementById('changePasswordModal').classList.add('hidden');
-        }
-
-        async function handleChangePassword(e) {
-            e.preventDefault();
-            const newPin = document.getElementById('newPasscodeInput').value.trim();
-            const username = window.AppState.currentUsername;
-
-            if (!newPin) {
-                showToast("الرجاء إدخال كلمة المرور الجديدة", "error");
-                return;
-            }
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-
-                if (db && username) {
-                    const { doc, updateDoc, setDoc } = window.dbModule;
-                    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', username);
-                    await setDoc(userDocRef, { pin: newPin, role: window.AppState.role }, { merge: true });
-                }
-
-                closeChangePasswordModal();
-                showToast("تم تحديث كلمة المرور الخاصة بك بنجاح", "success");
-            } catch (err) {
-                console.error("Password update error:", err);
-                showToast("فشل في تحديث كلمة المرور", "error");
-            }
-        }
-
-        // Admin: Open Users Management Modal
-        async function openUsersModal() {
-            if (window.AppState.role !== 'owner') return;
-
-            const container = document.getElementById('usersListContainer');
-            container.innerHTML = `<div class="text-center text-xs py-4 text-slate-400"><i class="fa-solid fa-spinner fa-spin"></i> جاري التحميل...</div>`;
-            document.getElementById('usersModal').classList.remove('hidden');
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-
-                if (db) {
-                    const { collection, getDocs } = window.dbModule;
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-                    const snapshot = await getDocs(colRef);
-
-                    const users = [];
-                    snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
-
-                    if (users.length === 0) {
-                        container.innerHTML = `<p class="text-center text-xs text-slate-400 py-4">لا توجد حسابات مسجلة بعد</p>`;
-                        return;
-                    }
-
-                    container.innerHTML = users.map(u => `
-                        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                            <div>
-                                <span class="font-bold text-xs text-slate-800 block">${escapeHtml(u.id)}</span>
-                                <span class="text-[10px] text-slate-500">${u.role === 'owner' ? 'أدمن (مالك)' : 'مُدخل بيانات'} | كلمة المرور: <span class="font-mono font-bold">${escapeHtml(u.pin)}</span></span>
-                            </div>
-                            <button onclick="deleteUserAccount('${escapeHtml(u.id)}')" class="text-red-500 hover:text-red-700 text-xs p-1">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        </div>
-                    `).join('');
-                }
-            } catch (err) {
-                console.error("Error fetching users:", err);
-                container.innerHTML = `<p class="text-center text-xs text-red-500 py-4">حدث خطأ أثناء تحميل المستخدمين</p>`;
-            }
-        }
-
-        function closeUsersModal() {
-            document.getElementById('usersModal').classList.add('hidden');
-        }
-
-        // Admin: Add New User Account
-        async function handleAddNewUser(e) {
-            e.preventDefault();
-            const username = document.getElementById('newUserName').value.trim();
-            const pin = document.getElementById('newUserPin').value.trim();
-            const isOwner = document.getElementById('newUserIsOwner').checked;
-
-            if (!username || !pin) {
-                showToast("الرجاء إدخال اسم المستخدم وكلمة المرور", "error");
-                return;
-            }
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-
-                if (db) {
-                    const { doc, setDoc } = window.dbModule;
-                    const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', username);
-                    await setDoc(userDocRef, {
-                        pin: pin,
-                        role: isOwner ? 'owner' : 'submitter',
-                        createdAt: Date.now()
-                    });
-                }
-
-                document.getElementById('newUserName').value = '';
-                document.getElementById('newUserPin').value = '';
-                document.getElementById('newUserIsOwner').checked = false;
-                showToast(`تم إنشاء حساب (${username}) بنجاح`, "success");
-                openUsersModal(); // Refresh list
-            } catch (err) {
-                console.error("Add user error:", err);
-                showToast("فشل في إنشاء الحساب الجديد", "error");
-            }
-        }
-
-        // Admin: Delete User Account
-        async function deleteUserAccount(username) {
-            if (!confirm(`هل أنت متأكد من حذف الحساب (${username})؟`)) return;
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-
-                if (db) {
-                    const { doc, deleteDoc } = window.dbModule;
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', username));
-                }
-
-                showToast("تم حذف الحساب بنجاح", "success");
-                openUsersModal();
-            } catch (err) {
-                console.error("Delete user error:", err);
-                showToast("فشل في حذف الحساب", "error");
-            }
-        }
-
-        // Submit New Transaction
-        async function submitTransaction(e) {
-            e.preventDefault();
-            if (!window.AppState.authenticated) {
-                showToast("يرجى تسجيل الدخول أولاً", "error");
-                return;
-            }
-
-            const amount = parseFloat(document.getElementById('inputAmount').value);
-            const ref = document.getElementById('inputRef').value.trim();
-            const notes = document.getElementById('inputNotes').value.trim();
-            const type = document.querySelector('input[name="txType"]:checked').value;
-
-            if (!amount || !ref) {
-                showToast("برجاء تعبئة كافة الحقول المطلوبة", "error");
-                return;
-            }
-
-            if (ref.length < 4) {
-                showToast("رقم المعاملة يجب أن يتكون من 4 أرقام/محارف على الأقل", "error");
-                return;
-            }
-
-            const now = new Date();
-            const formattedDate = now.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
-            const formattedTime = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-            const newDoc = {
-                type: type,
-                amount: amount,
-                reference: ref,
-                notes: notes,
-                date: formattedDate,
-                time: formattedTime,
-                createdAt: Date.now(),
-                status: window.AppState.role === 'owner' ? 'approved' : 'pending',
-                submittedBy: window.AppState.currentUsername || 'مستخدم'
-            };
-
-            const submitBtn = document.getElementById('btnSubmit');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري الحفظ...</span>`;
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-
-                if (db) {
-                    const { collection, addDoc } = window.dbModule;
-                    const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'transactions');
-                    await addDoc(colRef, newDoc);
-                } else {
-                    newDoc.id = 'local_' + Date.now();
-                    window.AppState.transactions.unshift(newDoc);
-                    renderTransactions();
-                    updateStats();
-                }
-
-                showToast("تم إرسال الطلب بنجاح", "success");
-                document.getElementById('transactionForm').reset();
-            } catch (err) {
-                console.error("Submission Error:", err);
-                showToast("حدث خطأ أثناء الحفظ", "error");
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>إرسال المبلغ والطلب</span>`;
-            }
-        }
-
-        // Render Transactions List in UI
-        window.renderTransactions = function() {
-            const container = document.getElementById('transactionsList');
-            const records = window.AppState.transactions || [];
-
-            document.getElementById('recordCounter').textContent = `${records.length} معاملة`;
-
-            if (records.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                        <i class="fa-regular fa-folder-open text-3xl mb-2 text-slate-300"></i>
-                        <p class="text-xs font-semibold">لا يوجد معاملات مسجلة حتى الآن</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const isOwner = window.AppState.role === 'owner';
-
-            container.innerHTML = records.map(item => {
-                let statusBadge = '';
-                if (item.status === 'approved') {
-                    statusBadge = `<span class="badge-approved text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1"><i class="fa-solid fa-check text-[10px]"></i> مقبول</span>`;
-                } else if (item.status === 'rejected') {
-                    statusBadge = `<span class="badge-rejected text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1"><i class="fa-solid fa-xmark text-[10px]"></i> مرفوض</span>`;
-                } else {
-                    statusBadge = `<span class="badge-pending text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1"><i class="fa-solid fa-clock text-[10px]"></i> قيد الانتظار</span>`;
-                }
-
-                const isSubtract = item.type === 'subtract';
-                const cardBgClass = isSubtract
-                    ? 'bg-rose-50/70 border-rose-200 hover:bg-rose-50'
-                    : 'bg-emerald-50/70 border-emerald-200 hover:bg-emerald-50';
-               
-                const amountColorClass = isSubtract ? 'text-rose-700' : 'text-emerald-700';
-                const signSymbol = isSubtract ? '-' : '+';
-                const typeLabel = isSubtract ? 'خصم (عليك)' : 'إضافة (لك)';
-
-                return `
-                    <div class="${cardBgClass} p-4 rounded-xl border shadow-sm transition space-y-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <div class="flex items-center space-x-2 space-x-reverse">
-                                    <span class="text-lg font-extrabold ${amountColorClass}">${signSymbol} ${item.amount.toLocaleString('ar-EG', {minimumFractionDigits: 2})}</span>
-                                    <span class="text-xs ${amountColorClass}">د.إ</span>
-                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md ${isSubtract ? 'bg-rose-200 text-rose-800' : 'bg-emerald-200 text-emerald-800'} ml-2">
-                                        ${typeLabel}
-                                    </span>
-                                </div>
-                                <div class="text-xs font-mono font-medium text-slate-600 mt-1">
-                                    <i class="fa-solid fa-hashtag text-[10px] text-slate-400 ml-0.5"></i> ${escapeHtml(item.reference)} | بواسطة: <span class="font-bold">${escapeHtml(item.submittedBy || 'غير محدد')}</span>
-                                </div>
-                            </div>
-                            <div>${statusBadge}</div>
-                        </div>
-
-                        ${item.notes ? `<p class="text-xs text-slate-700 bg-white/80 p-2 rounded-lg border border-slate-200/50">${escapeHtml(item.notes)}</p>` : ''}
-
-                        <div class="flex justify-between items-center text-[11px] text-slate-500 pt-2 border-t border-slate-200/60">
-                            <div class="flex items-center space-x-2 space-x-reverse">
-                                <span><i class="fa-regular fa-calendar ml-1"></i>${item.date || ''}</span>
-                                <span><i class="fa-regular fa-clock ml-1"></i>${item.time || ''}</span>
-                            </div>
-
-                            ${isOwner ? `
-                                <div class="flex items-center space-x-1 space-x-reverse">
-                                    ${item.status !== 'approved' ? `
-                                        <button onclick="updateStatus('${item.id}', 'approved')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-lg text-xs font-bold transition">
-                                            موافقة
-                                        </button>
-                                    ` : ''}
-                                    ${item.status !== 'rejected' ? `
-                                        <button onclick="updateStatus('${item.id}', 'rejected')" class="bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded-lg text-xs font-bold transition">
-                                            رفض
-                                        </button>
-                                    ` : ''}
-                                    <button onclick="openEditModal('${item.id}')" class="text-slate-500 hover:text-indigo-600 p-1">
-                                        <i class="fa-solid fa-pen-to-square"></i>
-                                    </button>
-                                    <button onclick="deleteTx('${item.id}')" class="text-slate-500 hover:text-rose-600 p-1">
-                                        <i class="fa-solid fa-trash-can"></i>
-                                    </button>
-                                </div>
-                            ` : `
-                                <span class="text-[10px] text-slate-400">عرض فقط</span>
-                            `}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        };
-
-        // Admin Action: Update Transaction Status (Approved/Rejected)
-        window.updateStatus = async function(id, newStatus) {
-            if (window.AppState.role !== 'owner') return;
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-                const { doc, updateDoc } = window.dbModule;
-
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id);
-                await updateDoc(docRef, { status: newStatus });
-                showToast("تم تحديث حالة المعاملة بنجاح", "success");
-            } catch (err) {
-                console.error("Update status error:", err);
-                showToast("فشل في تحديث حالة المعاملة", "error");
-            }
-        };
-
-        // Admin Action: Delete Transaction
-        window.deleteTx = async function(id) {
-            if (window.AppState.role !== 'owner') return;
-            if (!confirm("هل أنت متأكد من حذف هذه المعاملة؟")) return;
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-                const { doc, deleteDoc } = window.dbModule;
-
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id);
-                await deleteDoc(docRef);
-                showToast("تم حذف المعاملة بنجاح", "success");
-            } catch (err) {
-                console.error("Delete transaction error:", err);
-                showToast("فشل في حذف المعاملة", "error");
-            }
-        };
-
-        // Open Edit Modal
-        window.openEditModal = function(id) {
-            const tx = window.AppState.transactions.find(t => t.id === id);
-            if (!tx) return;
-
-            document.getElementById('editTxId').value = tx.id;
-            document.getElementById('editAmount').value = tx.amount;
-            document.getElementById('editRef').value = tx.reference;
-            document.getElementById('editNotes').value = tx.notes || '';
-            document.getElementById('editModal').classList.remove('hidden');
-        };
-
-        window.closeEditModal = function() {
-            document.getElementById('editModal').classList.add('hidden');
-        };
-
-        // Save Transaction Edit
-        async function saveTransactionEdit(e) {
-            e.preventDefault();
-            const id = document.getElementById('editTxId').value;
-            const amount = parseFloat(document.getElementById('editAmount').value);
-            const ref = document.getElementById('editRef').value.trim();
-            const notes = document.getElementById('editNotes').value.trim();
-
-            if (!amount || !ref) {
-                showToast("الرجاء إدخال الحقول المطلوبة", "error");
-                return;
-            }
-
-            try {
-                const db = window.AppState.db;
-                const appId = window.AppState.appId;
-                const { doc, updateDoc } = window.dbModule;
-
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'transactions', id);
-                await updateDoc(docRef, {
-                    amount: amount,
-                    reference: ref,
-                    notes: notes
-                });
-
-                closeEditModal();
-                showToast("تم تعديل المعاملة بنجاح", "success");
-            } catch (err) {
-                console.error("Edit transaction error:", err);
-                showToast("فشل في تعديل المعاملة", "error");
-            }
-        }
-
-        // Update Dashboard Counter Cards
-        window.updateStats = function() {
-            const list = window.AppState.transactions || [];
-            const approvedList = list.filter(t => t.status === 'approved');
-
-            const totalAdded = approvedList
-                .filter(t => t.type !== 'subtract')
-                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
-
-            const totalSubtracted = approvedList
-                .filter(t => t.type === 'subtract')
-                .reduce((acc, curr) => acc + (curr.amount || 0), 0);
-
-            const netDifference = totalAdded - totalSubtracted;
-
-            let lakSum = 0;
-            let alaikSum = 0;
-
-            if (netDifference > 0) {
-                lakSum = netDifference;
-            } else if (netDifference < 0) {
-                alaikSum = Math.abs(netDifference);
-            }
-
-            const pendingCount = list.filter(t => t.status === 'pending').length;
-
-            document.getElementById('statLakSum').innerHTML = `${lakSum.toLocaleString('ar-EG', {minimumFractionDigits: 2})} <span class="text-xs font-normal">د.إ</span>`;
-            document.getElementById('statAlaikSum').innerHTML = `${alaikSum.toLocaleString('ar-EG', {minimumFractionDigits: 2})} <span class="text-xs font-normal">د.إ</span>`;
-            document.getElementById('statPendingCount').textContent = pendingCount;
-            document.getElementById('statTotalCount').textContent = list.length;
-        };
-
-        function showToast(text, type = 'info') {
-            const toast = document.getElementById('toast');
-            const toastContent = document.getElementById('toastContent');
-            const toastText = document.getElementById('toastText');
-            const toastIcon = document.getElementById('toastIcon');
-
-            toastText.textContent = text;
-
-            if (type === 'success') {
-                toastContent.className = "bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 space-x-reverse text-xs font-bold";
-                toastIcon.className = "fa-solid fa-circle-check";
-            } else if (type === 'error') {
-                toastContent.className = "bg-red-600 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 space-x-reverse text-xs font-bold";
-                toastIcon.className = "fa-solid fa-triangle-exclamation";
-            } else {
-                toastContent.className = "bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 space-x-reverse text-xs font-bold";
-                toastIcon.className = "fa-solid fa-circle-info";
-            }
-
-            toast.classList.remove('translate-y-20', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-
-            setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('translate-y-20', 'opacity-0');
-            }, 3000);
-        }
-
-        function escapeHtml(str) {
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        }
-    </script>
+    <div class="tx-side"><span class="tx-amt num">${sub ? '−' : '+'}${fmt(toCents(t.amount || 0))}</span><span class="st st-${st}">${STATUS[st]}</span></div>
+    ${actions ? `<div class="tx-actions">${actions}</div>` : ''}
+  </article>`;
+}
+
+function renderList() {
+  const list = $('list');
+  if (!state.loaded) { list.innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>'; $('counter').textContent = ''; return; }
+  const rows = filtered(false), total = state.transactions.length;
+  $('counter').textContent = rows.length === total ? `${total} معاملة` : `${rows.length} من ${total}`;
+  if (!rows.length) {
+    list.innerHTML = total
+      ? `<div class="empty"><i class="fa-solid fa-filter-circle-xmark"></i>لا توجد نتائج مطابقة.<br><button class="link" id="clearF">مسح التصفية</button></div>`
+      : `<div class="empty"><i class="fa-regular fa-folder-open"></i>لا توجد معاملات بعد.<br>اضغط «${isOwner() ? 'معاملة جديدة' : 'إرسال معاملة'}» لتبدأ.</div>`;
+    return;
+  }
+  let html = '', last = null;
+  for (const t of rows) { const k = dayKey(t.createdAt); if (k !== last) { html += `<div class="day">${esc(dayLabel(t.createdAt))}</div>`; last = k; } html += txHTML(t); }
+  list.innerHTML = html;
+}
+
+function renderBadges() {
+  const pending = state.transactions.filter(t => (t.status || 'pending') === 'pending');
+  $('bell').hidden = !(isOwner() && pending.length);
+  $('bellDot').textContent = pending.length;
+  const showBulk = isOwner() && pending.length > 1;
+  $('bulk').hidden = !showBulk;
+  if (showBulk) $('bulkText').textContent = `لديك ${pending.length} طلبات بانتظار المراجعة`;
+}
+
+function renderAll() { renderHero(); renderChart(); renderChips(); renderList(); renderBadges(); }
+
+/* ---------- التصفية ---------- */
+$('q').addEventListener('input', e => { state.f.q = e.target.value; renderChips(); renderList(); });
+$('fType').onchange = e => { state.f.type = e.target.value; renderChips(); renderList(); };
+$('fPeriod').onchange = e => { state.f.period = e.target.value; renderChips(); renderList(); };
+$('statusChips').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; state.f.status = b.dataset.s; renderChips(); renderList(); });
+$('bell').onclick = () => { state.f.status = 'pending'; renderChips(); renderList(); $('list').scrollIntoView({ block: 'start' }); };
+$('list').addEventListener('click', (e) => {
+  if (e.target.closest('#clearF')) { state.f = { status: 'all', type: 'all', period: 'all', q: '' }; $('q').value = ''; $('fType').value = 'all'; $('fPeriod').value = 'all'; renderChips(); renderList(); return; }
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const id = b.dataset.id;
+  ({ approve: () => setStatus(id, 'approved'), reject: () => setStatus(id, 'rejected'), edit: () => openTx(id), delete: () => deleteTx(id), withdraw: () => withdrawTx(id) })[b.dataset.a]?.();
+});
+
+/* ---------- المعاملات ---------- */
+$('txCats').innerHTML = `<label><input class="sr" type="radio" name="txCat" value="" checked><span>بدون</span></label>` +
+  CATEGORIES.map(c => `<label><input class="sr" type="radio" name="txCat" value="${c}"><span>${c}</span></label>`).join('');
+
+function genRef() { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${Math.floor(1000 + Math.random() * 9000)}`; }
+$('txGen').onclick = () => { $('txRef').value = genRef(); };
+$('fab').onclick = () => openTx(null);
+
+function openTx(id) {
+  state.editingId = id; showErr('txErr');
+  $('txForm').reset();
+  if (id) {
+    const t = state.transactions.find(x => x.id === id); if (!t) return;
+    document.querySelector(`input[name=txType][value=${t.type === 'subtract' ? 'subtract' : 'add'}]`).checked = true;
+    $('txAmount').value = t.amount; $('txRef').value = t.reference; $('txNotes').value = t.notes || '';
+    const c = document.querySelector(`input[name=txCat][value="${t.category || ''}"]`); if (c) c.checked = true;
+    $('txTitle').textContent = 'تعديل المعاملة'; $('txBtn').querySelector('span').textContent = 'حفظ التغييرات';
+  } else {
+    $('txTitle').textContent = isOwner() ? 'معاملة جديدة' : 'إرسال معاملة للمراجعة';
+    $('txBtn').querySelector('span').textContent = isOwner() ? 'حفظ واعتماد' : 'إرسال';
+    $('txRef').value = genRef();
+  }
+  openModal('txModal');
+}
+
+$('txForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); showErr('txErr');
+  const type = document.querySelector('input[name=txType]:checked').value;
+  const category = document.querySelector('input[name=txCat]:checked').value;
+  const amount = parseAmount($('txAmount').value), reference = $('txRef').value.trim(), notes = $('txNotes').value.trim();
+  if (!(amount > 0)) return showErr('txErr', 'أدخل مبلغاً صحيحاً (حتى خانتين عشريتين).');
+  if (amount > 1e9) return showErr('txErr', 'المبلغ كبير جداً.');
+  if (reference.length < 4) return showErr('txErr', 'رقم المعاملة يجب ألا يقل عن 4 محارف.');
+  const dup = state.transactions.some(t => t.reference === reference && t.id !== state.editingId);
+  if (dup && !(await confirmDialog({ title: 'رقم مكرر', message: 'توجد معاملة بنفس هذا الرقم. هل تريد المتابعة؟', okText: 'متابعة' }))) return;
+
+  const btn = $('txBtn'); btn.disabled = true;
+  try {
+    if (state.editingId) {
+      if (!isOwner()) return;
+      await updateDoc(txRef(state.editingId), { type, amount, reference, notes, category, updatedBy: state.profile.name, updatedAt: Date.now() });
+      toast('تم حفظ التعديلات');
+    } else {
+      await addDoc(txCol(), {
+        type, amount, reference, notes, category, createdAt: Date.now(),
+        status: isOwner() ? 'approved' : 'pending', submittedBy: state.profile.name, uid: state.user.uid
+      });
+      toast(isOwner() ? 'تمت إضافة المعاملة' : 'أُرسلت المعاملة للمراجعة');
+    }
+    closeModal('txModal');
+  } catch (err) { console.error(err); showErr('txErr', authMessage(err)); }
+  finally { btn.disabled = false; }
+});
+
+async function setStatus(id, status) {
+  if (!isOwner()) return;
+  const t = state.transactions.find(x => x.id === id), prev = t?.status || 'pending';
+  try {
+    await updateDoc(txRef(id), { status, reviewedBy: state.profile.name, reviewedAt: Date.now() });
+    toast(status === 'approved' ? 'تم قبول المعاملة' : 'تم رفض المعاملة', 'ok', {
+      label: 'تراجع', run: () => updateDoc(txRef(id), { status: prev }).catch(() => toast('تعذر التراجع', 'bad'))
+    });
+  } catch (err) { console.error(err); toast(authMessage(err), 'bad'); }
+}
+
+$('bulkBtn').onclick = async () => {
+  const pend = state.transactions.filter(t => (t.status || 'pending') === 'pending');
+  if (!pend.length) return;
+  if (!(await confirmDialog({ title: 'اعتماد الكل', message: `سيتم قبول ${pend.length} معاملة معلّقة. تأكد من مراجعتها.`, okText: 'اعتماد الكل' }))) return;
+  try {
+    for (let i = 0; i < pend.length; i += 400) {
+      const b = writeBatch(db);
+      pend.slice(i, i + 400).forEach(t => b.update(txRef(t.id), { status: 'approved', reviewedBy: state.profile.name, reviewedAt: Date.now() }));
+      await b.commit();
+    }
+    toast(`تم قبول ${pend.length} معاملة`);
+  } catch (err) { console.error(err); toast(authMessage(err), 'bad'); }
+};
+
+async function deleteTx(id) {
+  if (!isOwner()) return;
+  if (!(await confirmDialog({ title: 'حذف المعاملة', message: 'سيتم حذفها نهائياً ولا يمكن التراجع.', okText: 'حذف', danger: true }))) return;
+  try { await deleteDoc(txRef(id)); toast('تم حذف المعاملة'); } catch (err) { console.error(err); toast(authMessage(err), 'bad'); }
+}
+async function withdrawTx(id) {
+  if (!(await confirmDialog({ title: 'سحب الطلب', message: 'سيتم حذف هذا الطلب قبل مراجعته.', okText: 'سحب الطلب', danger: true }))) return;
+  try { await deleteDoc(txRef(id)); toast('تم سحب الطلب'); } catch (err) { console.error(err); toast(authMessage(err), 'bad'); }
+}
+
+function exportCsv() {
+  if (!isOwner()) return;
+  const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; };
+  const rows = [['التاريخ', 'النوع', 'المبلغ', 'رقم المعاملة', 'التصنيف', 'ملاحظات', 'بواسطة', 'الحالة']];
+  for (const t of state.transactions) rows.push([t.createdAt ? new Date(t.createdAt).toLocaleString('ar') : `${t.date || ''} ${t.time || ''}`, t.type === 'subtract' ? 'خصم' : 'إضافة', t.amount, t.reference, t.category, t.notes, t.submittedBy, STATUS[t.status || 'pending']]);
+  const url = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: `transactions-${new Date().toISOString().slice(0, 10)}.csv` });
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  toast('تم تصدير الملف');
+}
+
+/* ---------- تغيير كلمة المرور ---------- */
+$('passForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); showErr('pErr');
+  const cur = $('pCur').value, next = $('pNew').value;
+  if (!cur) return showErr('pErr', 'أدخل كلمة المرور الحالية.');
+  if (next.length < MIN_PASS) return showErr('pErr', `كلمة المرور الجديدة يجب ألا تقل عن ${MIN_PASS} أحرف.`);
+  const btn = $('pBtn'); btn.disabled = true;
+  try {
+    await reauthenticateWithCredential(state.user, EmailAuthProvider.credential(state.user.email, cur));
+    await updatePassword(state.user, next);
+    closeModal('passModal'); toast('تم تحديث كلمة المرور');
+  } catch (err) { console.error(err); showErr('pErr', authMessage(err)); }
+  finally { btn.disabled = false; }
+});
+
+/* ---------- إدارة المستخدمين (للمالك) ---------- */
+let secondaryAuth = null;
+function getSecondaryAuth() {
+  if (!secondaryAuth) secondaryAuth = getAuth(initializeApp(firebaseConfig, 'secondary'));
+  return secondaryAuth;
+}
+
+async function openUsersModal() {
+  if (!isOwner()) return;
+  showErr('uErr'); openModal('usersModal'); await refreshUsers();
+}
+
+async function refreshUsers() {
+  const box = $('usersList');
+  box.innerHTML = '<div class="skel" style="height:52px"></div>';
+  try {
+    const snap = await getDocs(usersCol()), users = [];
+    snap.forEach(d => { const v = d.data(); if (v.email) users.push({ id: d.id, ...v }); }); // تجاهل سجلات النظام القديم
+    box.innerHTML = users.map(u => {
+      const self = u.id === state.user.uid;
+      return `<div class="user-row"><div class="avatar">${esc((u.name || '؟').charAt(0))}</div>
+        <div class="grow"><b>${esc(u.name)}<span class="role">${u.role === 'owner' ? 'مالك' : 'مُدخل'}</span>${self ? ' <small>(أنت)</small>' : ''}</b><small>${esc(u.email)}</small></div>
+        <button class="ghost-ic" data-ua="reset" data-email="${esc(u.email)}" title="إرسال رابط إعادة تعيين كلمة المرور"><i class="fa-solid fa-envelope"></i></button>
+        ${self ? '' : `<button class="ghost-ic" data-ua="del" data-id="${esc(u.id)}" data-name="${esc(u.name)}" title="سحب الصلاحية"><i class="fa-solid fa-user-slash"></i></button>`}</div>`;
+    }).join('') || '<p class="note">لا توجد حسابات.</p>';
+  } catch (err) { console.error(err); box.innerHTML = `<div class="err">${esc(authMessage(err))}</div>`; }
+}
+
+$('usersList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-ua]'); if (!b || !isOwner()) return;
+  try {
+    if (b.dataset.ua === 'reset') { await sendPasswordResetEmail(auth, b.dataset.email); toast('أُرسل رابط إعادة التعيين'); }
+    else {
+      if (!(await confirmDialog({ title: 'سحب الصلاحية', message: `سيفقد (${b.dataset.name}) الوصول إلى النظام فوراً.`, okText: 'سحب', danger: true }))) return;
+      await deleteDoc(userRef(b.dataset.id)); toast('تم سحب الصلاحية'); refreshUsers();
+    }
+  } catch (err) { console.error(err); toast(authMessage(err), 'bad'); }
+});
+
+$('userForm').addEventListener('submit', async (e) => {
+  e.preventDefault(); showErr('uErr');
+  if (!isOwner()) return;
+  const name = $('uName').value.trim(), email = $('uEmail').value.trim(), pass = $('uPass').value, role = $('uRole').value;
+  if (name.length < 2) return showErr('uErr', 'أدخل اسم المستخدم.');
+  if (!email) return showErr('uErr', 'أدخل البريد الإلكتروني.');
+  if (pass.length < MIN_PASS) return showErr('uErr', `كلمة المرور المؤقتة يجب ألا تقل عن ${MIN_PASS} أحرف.`);
+  const btn = $('uBtn'); btn.disabled = true;
+  try {
+    const sa = getSecondaryAuth();
+    const cred = await createUserWithEmailAndPassword(sa, email, pass); // جلسة منفصلة كي لا يخرج المالك
+    await updateProfile(cred.user, { displayName: name });
+    await signOut(sa);
+    await setDoc(userRef(cred.user.uid), { name, email: cred.user.email, role, createdAt: Date.now(), createdBy: state.user.uid });
+    $('userForm').reset(); toast(`تم إنشاء حساب ${name}`); refreshUsers();
+  } catch (err) { console.error(err); showErr('uErr', authMessage(err)); }
+  finally { btn.disabled = false; }
+});
+
+/* ---------- حالة الاتصال ---------- */
+addEventListener('offline', () => toast('أنت غير متصل. ستُحفظ التغييرات وتتزامن لاحقاً.', 'bad'));
+addEventListener('online', () => toast('عاد الاتصال'));
+</script>
 </body>
 </html>
