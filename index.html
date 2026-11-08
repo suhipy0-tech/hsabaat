@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E3B33">
+<title>دفتر المعاملات</title>
+<script>
+  // تطبيق الثيم قبل رسم الصفحة لتجنب الوميض
+  (function () {
+    var t = 'auto';
+    try { t = localStorage.getItem('ledger_theme') || 'auto'; } catch (e) {}
+    var dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ================= شاشة الدخول والتسجيل ================= -->
+<div id="auth" class="auth loading">
+  <div class="ring" id="ring">
+    <form class="aform" id="authForm" novalidate>
+      <h2 id="aTitle">تسجيل الدخول</h2>
+      <p class="a-sub" id="aSub" hidden></p>
+
+      <div class="afield" id="f-name" hidden>
+        <input type="text" id="aName" placeholder=" " autocomplete="name" maxlength="80">
+        <label for="aName">الاسم الرباعي</label>
+      </div>
+      <div class="afield" id="f-email">
+        <input type="email" id="aEmail" placeholder=" " autocomplete="email" maxlength="120">
+        <label for="aEmail">البريد الإلكتروني</label>
+      </div>
+      <div class="afield has-eye" id="f-pass">
+        <input type="password" id="aPass" placeholder=" " autocomplete="current-password" maxlength="100">
+        <label for="aPass">كلمة المرور</label>
+        <button type="button" class="eye" id="aEye" aria-label="إظهار كلمة المرور"><i class="fa-solid fa-eye"></i></button>
+      </div>
+      <div class="afield" id="f-confirm" hidden>
+        <input type="password" id="aConfirm" placeholder=" " autocomplete="new-password" maxlength="100">
+        <label for="aConfirm">تأكيد كلمة المرور</label>
+      </div>
+
+      <div class="arow" id="aRow">
+        <label class="remember"><input type="checkbox" id="aRemember" checked><span>تذكّرني</span></label>
+        <button type="button" id="aForgot" class="alink">نسيت كلمة المرور؟</button>
+      </div>
+
+      <div id="aMsg" class="a-msg" role="alert" hidden></div>
+
+      <button type="submit" id="aBtn" class="abtn">دخول</button>
+      <button type="button" id="aGoogle" class="agoogle"><i class="fa-brands fa-google"></i><span>المتابعة بحساب Google</span></button>
+      <button type="button" id="aSwitch" class="alink strong">إنشاء حساب جديد</button>
+      <button type="button" id="aLogout" class="alink" hidden>تسجيل الخروج</button>
+    </form>
+  </div>
+</div>
+
+<!-- ================= التطبيق (مخفي حتى تسجيل الدخول) ================= -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-book-open"></i></div>
+        <div><h1>دفتر المعاملات</h1><p id="hello">—</p></div>
+      </div>
+      <div class="top-actions">
+        <button id="bell" class="icon-btn" aria-label="الإشعارات"><i class="fa-regular fa-bell"></i><span class="dot" id="bellDot" hidden>0</span></button>
+        <button id="themeBtn" class="icon-btn" aria-label="تبديل الثيم"><i id="themeIc" class="fa-solid fa-circle-half-stroke"></i></button>
+        <div style="position:relative">
+          <button id="avatarBtn" class="avatar" aria-label="القائمة" aria-haspopup="true" aria-expanded="false">؟</button>
+          <div id="menu" class="menu" hidden>
+            <div class="menu-head"><b id="mName">—</b><small id="mEmail">—</small><br><span class="role" id="mRole" style="margin:0">—</span></div>
+            <button id="mUsers" hidden><i class="fa-solid fa-users-gear"></i>إدارة المستخدمين</button>
+            <button id="mExport" hidden><i class="fa-solid fa-file-csv"></i>تصدير CSV</button>
+            <button id="mPass"><i class="fa-solid fa-key"></i>تغيير كلمة المرور</button>
+            <button id="mOut" class="out"><i class="fa-solid fa-right-from-bracket"></i>تسجيل الخروج</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="verifyBar" class="vbar" hidden>
+    <span><i class="fa-solid fa-envelope-circle-check"></i> فعّل بريدك الإلكتروني لاستخدام القنوات. أرسلنا لك رسالة تأكيد.</span>
+    <span class="btns">
+      <button id="vResend" class="btn btn-soft btn-sm">إعادة الإرسال</button>
+      <button id="vCheck" class="btn btn-primary btn-sm">تم التفعيل</button>
+    </span>
+  </div>
+
+  <main>
+    <nav class="tabs" id="tabs" aria-label="الأقسام">
+      <button class="tab on" data-view="ledger"><i class="fa-solid fa-book"></i>الدفتر</button>
+      <button class="tab" data-view="channels"><i class="fa-solid fa-link"></i>القنوات <span class="cnt" id="chCnt" hidden>0</span></button>
+    </nav>
+
+    <!-- ===== قسم الدفتر ===== -->
+    <div id="view-ledger" class="stack" style="gap:1.2rem">
+      <div class="top-grid">
+        <section class="hero" aria-label="الرصيد">
+          <div class="hero-top"><span class="hero-label">صافي الرصيد</span><span id="heroPill" class="pill pill-even">متعادل</span></div>
+          <div class="hero-num"><span id="heroNum" class="num">0.00</span><span class="hero-cur">د.إ</span></div>
+          <div class="hero-sub" id="heroSub"></div>
+          <div class="hero-split">
+            <div><small>إجمالي الإضافات</small><b class="num" id="sumAdd">0.00</b></div>
+            <div><small>إجمالي الخصومات</small><b class="num" id="sumSub">0.00</b></div>
+            <div><small>قيد الانتظار</small><b class="num" id="sumPend">0.00</b></div>
+          </div>
+        </section>
+        <section class="card" aria-label="الحركة الشهرية">
+          <h2>الحركة آخر 6 أشهر</h2>
+          <div id="chart"></div>
+          <div class="legend"><span><i style="background:var(--gain)"></i>إضافات</span><span><i style="background:var(--loss)"></i>خصومات</span></div>
+        </section>
+      </div>
+
+      <section class="card" aria-label="سجل المعاملات">
+        <h2>سجل المعاملات <span class="note" id="counter"></span></h2>
+        <div class="toolbar">
+          <div class="filters">
+            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="q" class="input" type="search" placeholder="ابحث بالرقم أو الملاحظة أو الاسم"></div>
+            <select id="fType" class="input" aria-label="النوع"><option value="all">كل الأنواع</option><option value="add">إضافات</option><option value="subtract">خصومات</option></select>
+            <select id="fPeriod" class="input" aria-label="الفترة"><option value="all">كل الفترات</option><option value="month">هذا الشهر</option><option value="30">آخر 30 يوماً</option></select>
+          </div>
+          <div class="chips" id="statusChips"></div>
+        </div>
+        <div id="bulk" class="banner" hidden>
+          <span id="bulkText"></span>
+          <button id="bulkBtn" class="btn btn-primary btn-sm"><i class="fa-solid fa-check-double"></i>اعتماد الكل</button>
+        </div>
+        <div id="list"></div>
+      </section>
+    </div>
+
+    <!-- ===== قسم القنوات ===== -->
+    <div id="view-channels" class="stack" style="gap:1.2rem" hidden>
+      <section class="card">
+        <h2>طلب فتح قناة</h2>
+        <p class="note" style="margin:0 0 .8rem">اكتب بريد (حساب Google) الطرف الآخر. عند موافقته تُفتح قناة بينكما لدفتر مشترك تتزامن فيه المعاملات.</p>
+        <form id="reqForm" class="reqform" novalidate>
+          <input id="reqEmail" class="input" type="email" placeholder="example@gmail.com" autocomplete="off" maxlength="120">
+          <button id="reqBtn" type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال الطلب</button>
+        </form>
+        <div id="reqErr" class="err" role="alert" hidden style="margin-top:.7rem"></div>
+      </section>
+
+      <section class="card" id="incomingCard" hidden>
+        <h2>طلبات واردة</h2>
+        <div id="incomingList"></div>
+      </section>
+
+      <section class="card">
+        <h2>قنواتي <span class="note" id="chCounter"></span></h2>
+        <div id="channelsList"></div>
+      </section>
+
+      <section class="card" id="outgoingCard" hidden>
+        <h2>طلبات أرسلتها</h2>
+        <div id="outgoingList"></div>
+      </section>
+    </div>
+  </main>
+
+  <button id="fab" class="fab" aria-label="معاملة جديدة"><i class="fa-solid fa-plus"></i><span>معاملة جديدة</span></button>
+</div>
+
+<!-- ================= النوافذ ================= -->
+<div id="txModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="txTitle">
+    <div class="sheet-head"><h3 id="txTitle">معاملة جديدة</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="txForm" class="stack" novalidate>
+      <div class="seg" role="radiogroup" aria-label="نوع المعاملة">
+        <label><input class="sr" type="radio" name="txType" value="add" checked><span class="opt g"><i class="fa-solid fa-arrow-down"></i> إضافة (لك)</span></label>
+        <label><input class="sr" type="radio" name="txType" value="subtract"><span class="opt l"><i class="fa-solid fa-arrow-up"></i> خصم (عليك)</span></label>
+      </div>
+      <div class="field">
+        <label for="txAmount">المبلغ</label>
+        <div class="amount-wrap"><input id="txAmount" class="input" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off"><span>د.إ</span></div>
+      </div>
+      <div class="field">
+        <label for="txRef">رقم المعاملة (4 محارف على الأقل)</label>
+        <div style="display:flex;gap:.5rem">
+          <input id="txRef" class="input" dir="ltr" style="text-align:start;font-family:ui-monospace,monospace" maxlength="40" autocomplete="off">
+          <button type="button" id="txGen" class="btn btn-soft" title="توليد رقم تلقائي"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+        </div>
+      </div>
+      <div class="field"><span class="lbl">التصنيف (اختياري)</span><div class="cats" id="txCats"></div></div>
+      <div class="field"><label for="txNotes">ملاحظات</label><textarea id="txNotes" class="input" rows="2" maxlength="300"></textarea></div>
+      <div id="txErr" class="err" role="alert" hidden></div>
+      <div class="row-end">
+        <button type="button" class="btn btn-soft" data-close>إلغاء</button>
+        <button type="submit" id="txBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i><span>إرسال</span></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="passModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="passTitle">
+    <div class="sheet-head"><h3 id="passTitle">تغيير كلمة المرور</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="passForm" class="stack" novalidate>
+      <div class="field"><label for="pCur">كلمة المرور الحالية</label><input id="pCur" class="input" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="pNew">كلمة المرور الجديدة (8 أحرف: حروف وأرقام)</label><input id="pNew" class="input" type="password" autocomplete="new-password"></div>
+      <div id="pErr" class="err" role="alert" hidden></div>
+      <div class="row-end"><button type="button" class="btn btn-soft" data-close>إلغاء</button><button type="submit" id="pBtn" class="btn btn-primary">حفظ</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="usersModal" class="modal" data-modal hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="usersTitle">
+    <div class="sheet-head"><h3 id="usersTitle">إدارة المستخدمين</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="userForm" class="stack card" style="box-shadow:none;background:var(--surface-2);border:0" novalidate>
+      <b style="font-size:.88rem">إضافة مستخدم مباشرة (حساب مفعّل)</b>
+      <div style="display:grid;gap:.5rem;grid-template-columns:1fr 1fr">
+        <input id="uName" class="input" placeholder="الاسم الرباعي" maxlength="80" autocomplete="off">
+        <select id="uRole" class="input" aria-label="الدور"><option value="submitter">مُدخل بيانات</option><option value="owner">مالك (أدمن)</option></select>
+        <input id="uEmail" class="input" type="email" placeholder="البريد الإلكتروني" autocomplete="off">
+        <input id="uPass" class="input" type="password" placeholder="كلمة مرور مؤقتة (8+)" autocomplete="new-password">
+      </div>
+      <div id="uErr" class="err" role="alert" hidden></div>
+      <div class="row-end" style="margin:0"><button type="submit" id="uBtn" class="btn btn-primary btn-sm"><i class="fa-solid fa-user-plus"></i>إضافة</button></div>
+    </form>
+    <div style="margin-top:1rem">
+      <div class="lbl">المستخدمون</div>
+      <div id="usersList" class="stack" style="gap:.5rem"></div>
+    </div>
+  </div>
+</div>
+
+<div id="notifModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="notifTitle">
+    <div class="sheet-head"><h3 id="notifTitle">الإشعارات</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <div id="notifBody"></div>
+  </div>
+</div>
+
+<div id="chModal" class="modal" data-modal hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="chTitle">
+    <div class="sheet-head">
+      <div><h3 id="chTitle">—</h3><small class="note" id="chSub"></small></div>
+      <button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="chbal"><div><small class="note">الرصيد بينكما (المعاملات المؤكدة)</small><div><span class="bal zero num" id="chBal">0.00</span> <span class="note">د.إ</span></div></div><span class="pill pill-even" id="chPill" style="background:var(--surface);color:var(--ink)">متعادل</span></div>
+    <form id="entryForm" class="stack" novalidate>
+      <div class="seg" role="radiogroup" aria-label="نوع المعاملة">
+        <label><input class="sr" type="radio" name="eType" value="add" checked><span class="opt g">+ لك</span></label>
+        <label><input class="sr" type="radio" name="eType" value="subtract"><span class="opt l">− عليك</span></label>
+      </div>
+      <div style="display:grid;gap:.5rem;grid-template-columns:1fr 1.4fr">
+        <input id="eAmount" class="input" type="text" inputmode="decimal" placeholder="المبلغ" autocomplete="off">
+        <input id="eNotes" class="input" placeholder="ملاحظة (اختياري)" maxlength="300" autocomplete="off">
+      </div>
+      <div id="eErr" class="err" role="alert" hidden></div>
+      <div class="row-end" style="margin:0"><button type="submit" id="eBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال للتأكيد</button></div>
+      <p class="note" style="margin:0">الطرف الآخر يرى المعاملة بالعكس ويؤكدها أو يرفضها. الرصيد يحسب المؤكدة فقط.</p>
+    </form>
+    <div style="margin-top:1rem" id="entriesList"></div>
+  </div>
+</div>
+
+<div id="confirmModal" class="modal" data-modal hidden style="z-index:65">
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="cfTitle" style="max-width:380px">
+    <h3 id="cfTitle" style="margin:0 0 .4rem"></h3>
+    <p id="cfMsg" class="note" style="font-size:.88rem;margin:0 0 1rem"></p>
+    <div class="row-end"><button id="cfCancel" class="btn btn-soft">إلغاء</button><button id="cfOk" class="btn btn-primary">تأكيد</button></div>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
