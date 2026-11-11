@@ -1,9 +1,11 @@
+تم تعديل الكود وضبط مساحات شاشة الدخول وحل مشكلة قص أو اختفاء الجزء العلوي للمصباح على الهواتف والشاشات القصيرة (عن طريق تحويل المحاذاة العمودية إلى flex-start مع توزيع الهوامش بمرونة باستخدام margin: auto وتأمين الحوامش الآمنة safe-area-inset).
+إليك الكود كاملاً ومحدثاً:
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0E3B33">
+<meta name="theme-color" content="#0E1F1B">
 <title>دفتر المعاملات</title>
 <script>
   // تطبيق الثيم قبل رسم الصفحة لتجنب الوميض
@@ -14,53 +16,187 @@
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   })();
 </script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- سرعة التحميل: تحميل الوحدات ومكتبة Firebase بالتوازي بدل التسلسل -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js" crossorigin>
+<link rel="modulepreload" href="main.js">
+<link rel="modulepreload" href="firebase.js">
+<link rel="modulepreload" href="state.js">
+<link rel="modulepreload" href="utils.js">
+<link rel="modulepreload" href="auth.js">
+<link rel="modulepreload" href="ledger.js">
+<link rel="modulepreload" href="channels.js">
+
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<!-- أيقونات التطبيق: تُحمَّل دون تعطيل ظهور شاشة الدخول (الدخول يستخدم أيقونات مدمجة) -->
+<link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+
+<!-- تنسيق شاشة الدخول (مدمج لتظهر فوراً دون انتظار أي ملف) -->
+<style>
+  .auth{position:fixed;inset:0;z-index:60;overflow:auto;background:#0E1F1B;color:#E6F0EB;font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;transition:background-color .4s;-webkit-tap-highlight-color:transparent}
+  .auth[hidden]{display:none}
+  .auth.lamp-off{background:#060B0A}
+  .auth.loading .lg-card{visibility:hidden}
+  .lg-glow{position:fixed;left:50%;top:42%;width:min(95vw,680px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(60,195,165,.34) 0%,rgba(230,185,92,.10) 38%,rgba(15,107,92,.08) 60%,transparent 74%);transition:opacity .45s,transform .45s}
+  .lamp-off .lg-glow{opacity:0;transform:translate(-50%,-50%) scale(.5)}
+  .lg-wrap{position:relative;z-index:1;min-height:100%;max-width:440px;margin:0 auto;padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px}
+  .lg-lamp{margin-top:auto}
+  .lg-lamp svg{display:block;width:min(170px,45vw);height:auto;overflow:visible}
+  .lamp-part{transition:filter .45s}
+  .lamp-off .lamp-part{filter:brightness(.4) contrast(.85)}
+  #cord-btn{cursor:pointer;outline:none}
+  #cord-btn:focus-visible circle{stroke:#3CC3A5;stroke-width:2}
+  .lg-card{width:100%;background:rgba(10,24,21,.78);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:18px;box-shadow:0 24px 48px -12px rgba(0,0,0,.55);cursor:default;margin-bottom:auto}
+  .lg-head{display:flex;align-items:center;gap:.7rem;padding-bottom:.7rem;margin-bottom:.7rem;border-bottom:1px solid rgba(255,255,255,.1)}
+  .lg-logo{width:36px;height:36px;border-radius:11px;background:rgba(60,195,165,.16);border:1px solid rgba(60,195,165,.4);color:#3CC3A5;display:grid;place-items:center;font:700 1.1rem 'Reem Kufi',sans-serif}
+  .lg-head h1{margin:0;font:700 1.05rem 'Reem Kufi','IBM Plex Sans Arabic',sans-serif;color:#fff}
+  .lg-head p{margin:0;font-size:.7rem;color:#9FB3AB}
+  .lg-tabs{display:flex;background:rgba(3,10,8,.6);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:4px;margin-bottom:.7rem}
+  .lg-tabs[hidden]{display:none}
+  .lg-tabs button{flex:1;border:0;background:none;color:#B5C7C0;font:600 .8rem 'IBM Plex Sans Arabic',sans-serif;padding:.45rem;border-radius:10px;cursor:pointer;transition:background .2s,color .2s}
+  .lg-tabs button.on{background:#0F6B5C;color:#fff}
+  .lg-title{margin:0 0 .3rem;font:700 1.15rem 'Reem Kufi','IBM Plex Sans Arabic',sans-serif;color:#3CC3A5}
+  .lg-sub{margin:0 0 .7rem;font-size:.76rem;color:#B5C7C0;line-height:1.7}
+  .lg-form{display:grid;gap:.6rem}
+  .lg-field label{display:block;font-size:.72rem;font-weight:600;color:#CFE0D9;margin-bottom:.25rem}
+  .lg-in{position:relative}
+  .lg-in .ic{position:absolute;inset-inline-start:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#8FA39B;pointer-events:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .lg-in input{width:100%;height:42px;padding:0 38px;border-radius:12px;background:rgba(3,10,8,.7);border:1px solid rgba(255,255,255,.16);color:#fff;font:500 .85rem 'IBM Plex Sans Arabic',sans-serif;outline:none;transition:border-color .2s,box-shadow .2s}
+  .lg-in input::placeholder{color:#7B8F87}
+  .lg-in input:focus{border-color:#3CC3A5;box-shadow:0 0 0 3px rgba(60,195,165,.22)}
+  .lg-eye{position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;background:none;color:#9FB3AB;border-radius:8px;cursor:pointer}
+  .lg-eye .ic{position:static;transform:none;width:16px;height:16px}
+  .lg-eye .off{display:none}.lg-eye.shown .on{display:none}.lg-eye.shown .off{display:inline}
+  .lg-row{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+  .lg-row[hidden]{display:none}
+  .lg-rem{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:#CFE0D9;cursor:pointer}
+  .lg-rem input{accent-color:#3CC3A5;width:15px;height:15px}
+  .lg-link{background:none;border:0;padding:0;color:#3CC3A5;font:600 .75rem 'IBM Plex Sans Arabic',sans-serif;cursor:pointer}
+  .lg-link:hover{text-decoration:underline}
+  .a-msg{border-radius:12px;padding:.5rem .8rem;font-size:.76rem;text-align:center;background:rgba(241,139,129,.2);color:#FFC0B9;line-height:1.6}
+  .a-msg.ok{background:rgba(60,195,165,.18);color:#A6FAE6}
+  .a-msg[hidden]{display:none}
+  .lg-btn{width:100%;height:44px;border:0;border-radius:12px;background:#3CC3A5;color:#05201A;font:700 .9rem 'IBM Plex Sans Arabic',sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(60,195,165,.25);transition:transform .15s,filter .15s}
+  .lg-btn:hover:not(:disabled){filter:brightness(1.08)}.lg-btn:active:not(:disabled){transform:scale(.98)}
+  .lg-btn:disabled{opacity:.7;cursor:wait}
+  .lg-btn[hidden],.lg-google[hidden],.lg-link[hidden]{display:none}
+  .lg-google{width:100%;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(3,10,8,.55);color:#E6F0EB;display:flex;align-items:center;justify-content:center;gap:.6rem;font:600 .8rem 'IBM Plex Sans Arabic',sans-serif;cursor:pointer;transition:border-color .2s}
+  .lg-google:hover:not(:disabled){border-color:#7FE9D0}
+  .lg-google svg{width:16px;height:16px}
+  .lg-out{justify-self:center}
+  .lg-tip{font-size:.68rem;color:#9FB3AB;background:rgba(3,10,8,.6);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.25rem .8rem;margin-top:2px}
+  .lg-spin{display:inline-block;width:18px;height:18px;border:2px solid rgba(5,32,26,.3);border-top-color:#05201A;border-radius:50%;animation:lgs .8s linear infinite;vertical-align:middle}
+  @keyframes lgs{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.auth *{transition:none!important;animation:none!important}}
+</style>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 
-<!-- ================= شاشة الدخول والتسجيل ================= -->
-<div id="auth" class="auth loading">
-  <div class="ring" id="ring">
-    <form class="aform" id="authForm" novalidate>
-      <h2 id="aTitle">تسجيل الدخول</h2>
-      <p class="a-sub" id="aSub" hidden></p>
+<!-- أيقونات شاشة الدخول (مدمجة لتظهر فوراً) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"/></symbol>
+</svg>
 
-      <div class="afield" id="f-name" hidden>
-        <input type="text" id="aName" placeholder=" " autocomplete="name" maxlength="80">
-        <label for="aName">الاسم الرباعي</label>
-      </div>
-      <div class="afield" id="f-email">
-        <input type="email" id="aEmail" placeholder=" " autocomplete="email" maxlength="120">
-        <label for="aEmail">البريد الإلكتروني</label>
-      </div>
-      <div class="afield has-eye" id="f-pass">
-        <input type="password" id="aPass" placeholder=" " autocomplete="current-password" maxlength="100">
-        <label for="aPass">كلمة المرور</label>
-        <button type="button" class="eye" id="aEye" aria-label="إظهار كلمة المرور"><i class="fa-solid fa-eye"></i></button>
-      </div>
-      <div class="afield" id="f-confirm" hidden>
-        <input type="password" id="aConfirm" placeholder=" " autocomplete="new-password" maxlength="100">
-        <label for="aConfirm">تأكيد كلمة المرور</label>
-      </div>
+<!-- ================= شاشة الدخول والتسجيل (المصباح) ================= -->
+<div id="auth" class="auth">
+  <div class="lg-glow"></div>
+  <div class="lg-wrap">
+    <div class="lg-lamp">
+      <svg viewBox="0 0 240 190" fill="none" aria-hidden="false" role="img" aria-label="مصباح">
+        <defs>
+          <linearGradient id="metal" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#9BE8D4"/><stop offset="40%" stop-color="#3CC3A5"/><stop offset="70%" stop-color="#0F6B5C"/><stop offset="100%" stop-color="#0A3F36"/>
+          </linearGradient>
+          <linearGradient id="shade" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#14423A"/><stop offset="50%" stop-color="#0B1F1B"/><stop offset="100%" stop-color="#050D0B"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <g class="lamp-part">
+          <ellipse cx="120" cy="175" rx="55" ry="10" fill="url(#metal)" stroke="#0F6B5C" stroke-width="1.5"/>
+          <ellipse cx="120" cy="172" rx="42" ry="6" fill="#10201c" stroke="url(#metal)" stroke-width="1"/>
+          <circle cx="120" cy="172" r="5" fill="url(#metal)"/>
+          <path d="M120 172 C120 120, 75 110, 85 70 C90 50, 115 45, 135 45" stroke="url(#metal)" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+          <circle cx="86" cy="72" r="5.5" fill="url(#metal)" stroke="#0A3F36" stroke-width="1"/>
+          <circle cx="135" cy="45" r="4.5" fill="url(#metal)"/>
+          <path d="M105 48 C105 20, 165 20, 165 48 Z" fill="url(#shade)" stroke="url(#metal)" stroke-width="2"/>
+          <ellipse cx="135" cy="48" rx="30" ry="7" stroke="url(#metal)" stroke-width="1.5" fill="#0B1F1B"/>
+        </g>
+        <ellipse id="bulb-light" cx="135" cy="48" rx="24" ry="5.5" fill="#3CC3A5" filter="url(#glow)"/>
+        <g id="cord-btn" class="lamp-part" tabindex="0" role="button" aria-label="تشغيل أو إطفاء الإضاءة">
+          <line x1="150" y1="51" x2="150" y2="115" stroke="#7FE9D0" stroke-width="1.5" stroke-dasharray="2 2"/>
+          <circle cx="150" cy="120" r="6" fill="url(#metal)" stroke="#ffffff" stroke-width="1"/>
+        </g>
+      </svg>
+    </div>
 
-      <div class="arow" id="aRow">
-        <label class="remember"><input type="checkbox" id="aRemember" checked><span>تذكّرني</span></label>
-        <button type="button" id="aForgot" class="alink">نسيت كلمة المرور؟</button>
+    <div id="authCard" class="lg-card">
+      <div class="lg-head"><div class="lg-logo">د</div><div><h1>دفتر المعاملات</h1><p>نظام مالي مشترك وآمن</p></div></div>
+
+      <div class="lg-tabs" id="aTabs" role="tablist">
+        <button type="button" id="tab-login" class="on" role="tab" aria-selected="true">تسجيل الدخول</button>
+        <button type="button" id="tab-signup" role="tab" aria-selected="false">حساب جديد</button>
       </div>
+      <h2 id="aTitle" class="lg-title" hidden></h2>
+      <p id="aSub" class="lg-sub"></p>
 
-      <div id="aMsg" class="a-msg" role="alert" hidden></div>
+      <form id="authForm" class="lg-form" novalidate onsubmit="return false">
+        <div class="lg-field" id="f-name" hidden>
+          <label for="aName">الاسم الرباعي كاملاً</label>
+          <div class="lg-in"><svg class="ic"><use href="#i-user"/></svg>
+            <input type="text" id="aName" placeholder="الاسم الأول والثاني والثالث والرابع" autocomplete="name" maxlength="80"></div>
+        </div>
+        <div class="lg-field" id="f-email">
+          <label for="aEmail">البريد الإلكتروني</label>
+          <div class="lg-in"><svg class="ic"><use href="#i-mail"/></svg>
+            <input type="email" id="aEmail" dir="auto" placeholder="name@example.com" autocomplete="email" maxlength="120"></div>
+        </div>
+        <div class="lg-field" id="f-pass">
+          <label for="aPass">كلمة المرور</label>
+          <div class="lg-in"><svg class="ic"><use href="#i-lock"/></svg>
+            <input type="password" id="aPass" dir="auto" placeholder="••••••••" autocomplete="current-password" maxlength="100">
+            <button type="button" class="lg-eye" id="aEye" aria-label="إظهار كلمة المرور"><svg class="ic on"><use href="#i-eye"/></svg><svg class="ic off"><use href="#i-eyeoff"/></svg></button></div>
+        </div>
+        <div class="lg-field" id="f-confirm" hidden>
+          <label for="aConfirm">تأكيد كلمة المرور</label>
+          <div class="lg-in"><svg class="ic"><use href="#i-lock"/></svg>
+            <input type="password" id="aConfirm" dir="auto" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password" maxlength="100"></div>
+        </div>
 
-      <button type="submit" id="aBtn" class="abtn">دخول</button>
-      <button type="button" id="aGoogle" class="agoogle"><i class="fa-brands fa-google"></i><span>المتابعة بحساب Google</span></button>
-      <button type="button" id="aSwitch" class="alink strong">إنشاء حساب جديد</button>
-      <button type="button" id="aLogout" class="alink" hidden>تسجيل الخروج</button>
-    </form>
+        <div class="lg-row" id="aRow">
+          <label class="lg-rem"><input type="checkbox" id="aRemember" checked><span>تذكّر تسجيل دخولي</span></label>
+          <button type="button" id="aForgot" class="lg-link">نسيت كلمة المرور؟</button>
+        </div>
+
+        <div id="aMsg" class="a-msg" role="alert" hidden></div>
+
+        <button type="submit" id="aBtn" class="lg-btn">تسجيل الدخول</button>
+        <button type="button" id="aGoogle" class="lg-google">
+          <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span>المتابعة بحساب Google</span>
+        </button>
+        <button type="button" id="aLogout" class="lg-link lg-out" hidden>تسجيل الخروج</button>
+      </form>
+    </div>
+    <div class="lg-tip">اضغط خارج البطاقة لتشغيل المصباح أو إطفائه</div>
   </div>
 </div>
+<script>
+  // إن كان هناك مستخدم مسجّل سابقاً نخفي بطاقة الدخول إلى أن تُحسم الحالة (يمنع وميضها)
+  try { if (localStorage.getItem('ledger_hint')) document.getElementById('auth').classList.add('loading'); } catch (e) {}
+</script>
 
 <!-- ================= التطبيق (مخفي حتى تسجيل الدخول) ================= -->
 <div id="app" hidden>
@@ -78,7 +214,7 @@
           <div id="menu" class="menu" hidden>
             <div class="menu-head"><b id="mName">—</b><small id="mEmail">—</small><br><span class="role" id="mRole" style="margin:0">—</span></div>
             <button id="mUsers" hidden><i class="fa-solid fa-users-gear"></i>إدارة المستخدمين</button>
-            <button id="mExport" hidden><i class="fa-solid fa-file-csv"></i>تصدير CSV</button>
+            <button id="mExport"><i class="fa-solid fa-file-csv"></i>تصدير CSV</button>
             <button id="mPass"><i class="fa-solid fa-key"></i>تغيير كلمة المرور</button>
             <button id="mOut" class="out"><i class="fa-solid fa-right-from-bracket"></i>تسجيل الخروج</button>
           </div>
@@ -101,11 +237,11 @@
       <button class="tab" data-view="channels"><i class="fa-solid fa-link"></i>القنوات <span class="cnt" id="chCnt" hidden>0</span></button>
     </nav>
 
-    <!-- ===== قسم الدفتر ===== -->
+    <!-- ===== صفحة الدفتر ===== -->
     <div id="view-ledger" class="stack" style="gap:1.2rem">
       <div class="top-grid">
         <section class="hero" aria-label="الرصيد">
-          <div class="hero-top"><span class="hero-label">صافي الرصيد</span><span id="heroPill" class="pill pill-even">متعادل</span></div>
+          <div class="hero-top"><span class="hero-label">صافي الرصيد (الدفتر الرئيسي)</span><span id="heroPill" class="pill pill-even">متعادل</span></div>
           <div class="hero-num"><span id="heroNum" class="num">0.00</span><span class="hero-cur">د.إ</span></div>
           <div class="hero-sub" id="heroSub"></div>
           <div class="hero-split">
@@ -120,6 +256,25 @@
           <div class="legend"><span><i style="background:var(--gain)"></i>إضافات</span><span><i style="background:var(--loss)"></i>خصومات</span></div>
         </section>
       </div>
+
+      <section class="card" id="summaryCard" aria-label="ملخص عام">
+        <h2>ملخص عام عن معاملاتك</h2>
+        <div id="summaryGrid" class="sumgrid"></div>
+      </section>
+
+      <section class="card" id="stmtCard" aria-label="كشف الأموال الشامل">
+        <h2>كشف الأموال الشامل</h2>
+        <div id="stmtMain"></div>
+        <div id="stmtPeopleWrap" hidden style="margin-top:1.2rem">
+          <div class="lbl" style="font-size:.85rem">الدفتر الرئيسي حسب الشخص</div>
+          <div id="stmtPeople"></div>
+        </div>
+      </section>
+
+      <section class="card" id="chStmtCard" aria-label="كشوف القنوات" hidden>
+        <h2>كشف بسيط لكل قناة</h2>
+        <div id="chStmts" class="stmtgrid"></div>
+      </section>
 
       <section class="card" aria-label="سجل المعاملات">
         <h2>سجل المعاملات <span class="note" id="counter"></span></h2>
@@ -139,32 +294,38 @@
       </section>
     </div>
 
-    <!-- ===== قسم القنوات ===== -->
-    <div id="view-channels" class="stack" style="gap:1.2rem" hidden>
-      <section class="card">
-        <h2>طلب فتح قناة</h2>
-        <p class="note" style="margin:0 0 .8rem">اكتب بريد (حساب Google) الطرف الآخر. عند موافقته تُفتح قناة بينكما لدفتر مشترك تتزامن فيه المعاملات.</p>
-        <form id="reqForm" class="reqform" novalidate>
-          <input id="reqEmail" class="input" type="email" placeholder="example@gmail.com" autocomplete="off" maxlength="120">
-          <button id="reqBtn" type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال الطلب</button>
-        </form>
-        <div id="reqErr" class="err" role="alert" hidden style="margin-top:.7rem"></div>
-      </section>
-
-      <section class="card" id="incomingCard" hidden>
-        <h2>طلبات واردة</h2>
-        <div id="incomingList"></div>
-      </section>
-
-      <section class="card">
-        <h2>قنواتي <span class="note" id="chCounter"></span></h2>
-        <div id="channelsList"></div>
-      </section>
-
-      <section class="card" id="outgoingCard" hidden>
-        <h2>طلبات أرسلتها</h2>
-        <div id="outgoingList"></div>
-      </section>
+    <!-- ===== صفحة القنوات (أوسع) ===== -->
+    <div id="view-channels" hidden>
+      <div class="ch-layout">
+        <aside class="ch-side">
+          <section class="card">
+            <h2>طلب فتح قناة</h2>
+            <p class="note" style="margin:0 0 .8rem">اكتب بريد (حساب Google) الطرف الآخر ليصله الطلب.</p>
+            <form id="reqForm" class="reqform" novalidate>
+              <input id="reqEmail" class="input" type="email" placeholder="example@gmail.com" autocomplete="off" maxlength="120">
+              <button id="reqBtn" type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال الطلب</button>
+            </form>
+            <div id="reqErr" class="err" role="alert" hidden style="margin-top:.7rem"></div>
+            <ol class="steps">
+              <li>أرسل طلباً ببريد الطرف الآخر.</li>
+              <li>عند قبوله تُفتح قناة بينكما.</li>
+              <li>سجّل المعاملات، ويؤكدها الطرف الآخر.</li>
+            </ol>
+          </section>
+          <section class="card" id="incomingCard" hidden>
+            <h2>طلبات واردة</h2>
+            <div id="incomingList"></div>
+          </section>
+          <section class="card" id="outgoingCard" hidden>
+            <h2>طلبات أرسلتها</h2>
+            <div id="outgoingList"></div>
+          </section>
+        </aside>
+        <section class="card ch-main">
+          <h2>قنواتي <span class="note" id="chCounter"></span></h2>
+          <div id="channelsList"></div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -206,10 +367,20 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="passTitle">
     <div class="sheet-head"><h3 id="passTitle">تغيير كلمة المرور</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
     <form id="passForm" class="stack" novalidate>
-      <div class="field"><label for="pCur">كلمة المرور الحالية</label><input id="pCur" class="input" type="password" autocomplete="current-password"></div>
-      <div class="field"><label for="pNew">كلمة المرور الجديدة (8 أحرف: حروف وأرقام)</label><input id="pNew" class="input" type="password" autocomplete="new-password"></div>
+      <div class="vcard">
+        <i class="fa-solid fa-envelope-circle-check"></i>
+        <div>
+          <b>التحقق عبر البريد الإلكتروني</b>
+          <p class="note" style="margin:.2rem 0 .4rem">لحماية حسابك، نرسل رابط تحقق رسمياً إلى بريدك. افتح الرابط واختر كلمة المرور الجديدة.</p>
+          <b id="pEmail" dir="ltr" style="font-size:.85rem;word-break:break-all"></b>
+        </div>
+      </div>
+      <div id="pOk" class="okmsg" role="status" hidden></div>
       <div id="pErr" class="err" role="alert" hidden></div>
-      <div class="row-end"><button type="button" class="btn btn-soft" data-close>إلغاء</button><button type="submit" id="pBtn" class="btn btn-primary">حفظ</button></div>
+      <div class="row-end">
+        <button type="button" class="btn btn-soft" data-close>إغلاق</button>
+        <button type="submit" id="pBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال رابط التحقق</button>
+      </div>
     </form>
   </div>
 </div>
@@ -217,8 +388,9 @@
 <div id="usersModal" class="modal" data-modal hidden>
   <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="usersTitle">
     <div class="sheet-head"><h3 id="usersTitle">إدارة المستخدمين</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <p class="note" style="margin:0 0 .8rem">التسجيل مفتوح ويعمل مباشرة. من هنا تتحكم بالأدوار وتوقف الحسابات أو تحذفها.</p>
     <form id="userForm" class="stack card" style="box-shadow:none;background:var(--surface-2);border:0" novalidate>
-      <b style="font-size:.88rem">إضافة مستخدم مباشرة (حساب مفعّل)</b>
+      <b style="font-size:.88rem">إضافة مستخدم مباشرة</b>
       <div style="display:grid;gap:.5rem;grid-template-columns:1fr 1fr">
         <input id="uName" class="input" placeholder="الاسم الرباعي" maxlength="80" autocomplete="off">
         <select id="uRole" class="input" aria-label="الدور"><option value="submitter">مُدخل بيانات</option><option value="owner">مالك (أدمن)</option></select>
@@ -229,7 +401,7 @@
       <div class="row-end" style="margin:0"><button type="submit" id="uBtn" class="btn btn-primary btn-sm"><i class="fa-solid fa-user-plus"></i>إضافة</button></div>
     </form>
     <div style="margin-top:1rem">
-      <div class="lbl">المستخدمون</div>
+      <div class="lbl">المستخدمون <span class="note" id="usersCount"></span></div>
       <div id="usersList" class="stack" style="gap:.5rem"></div>
     </div>
   </div>
@@ -242,27 +414,54 @@
   </div>
 </div>
 
+<!-- نافذة القناة (الدفتر المشترك) -->
 <div id="chModal" class="modal" data-modal hidden>
-  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="chTitle">
+  <div class="sheet xl" role="dialog" aria-modal="true" aria-labelledby="chTitle">
     <div class="sheet-head">
       <div><h3 id="chTitle">—</h3><small class="note" id="chSub"></small></div>
       <button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="chbal"><div><small class="note">الرصيد بينكما (المعاملات المؤكدة)</small><div><span class="bal zero num" id="chBal">0.00</span> <span class="note">د.إ</span></div></div><span class="pill pill-even" id="chPill" style="background:var(--surface);color:var(--ink)">متعادل</span></div>
-    <form id="entryForm" class="stack" novalidate>
-      <div class="seg" role="radiogroup" aria-label="نوع المعاملة">
-        <label><input class="sr" type="radio" name="eType" value="add" checked><span class="opt g">+ لك</span></label>
-        <label><input class="sr" type="radio" name="eType" value="subtract"><span class="opt l">− عليك</span></label>
+    <div id="chTiles"></div>
+    <p class="note" id="chHint" style="margin:.5rem 0 1rem;text-align:center"></p>
+
+    <form id="entryForm" class="entryform" novalidate autocomplete="off">
+      <div class="field">
+        <label for="eAmount">المبلغ (د.إ)</label>
+        <input id="eAmount" class="input" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
       </div>
-      <div style="display:grid;gap:.5rem;grid-template-columns:1fr 1.4fr">
-        <input id="eAmount" class="input" type="text" inputmode="decimal" placeholder="المبلغ" autocomplete="off">
-        <input id="eNotes" class="input" placeholder="ملاحظة (اختياري)" maxlength="300" autocomplete="off">
+      <div class="field">
+        <label for="eRef">رقم المعاملة (أرقام فقط، 4 على الأقل)</label>
+        <input id="eRef" class="input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-required="true" dir="ltr" style="text-align:start">
       </div>
-      <div id="eErr" class="err" role="alert" hidden></div>
-      <div class="row-end" style="margin:0"><button type="submit" id="eBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال للتأكيد</button></div>
-      <p class="note" style="margin:0">الطرف الآخر يرى المعاملة بالعكس ويؤكدها أو يرفضها. الرصيد يحسب المؤكدة فقط.</p>
+      <div class="field grow2">
+        <label for="eNotes">ملاحظة (اختياري)</label>
+        <input id="eNotes" class="input" maxlength="300" autocomplete="off">
+      </div>
+      <button type="submit" id="eBtn" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i>إرسال للتأكيد</button>
     </form>
+    <div id="eErr" class="err" role="alert" hidden style="margin-top:.7rem"></div>
+    <p class="note" style="margin:.7rem 0 0">يؤكد الطرف الآخر المعاملة أو يرفضها، وتُحسب المؤكدة فقط في المجاميع.</p>
     <div style="margin-top:1rem" id="entriesList"></div>
+  </div>
+</div>
+
+<!-- نافذة التصدير -->
+<div id="exportModal" class="modal" data-modal hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+    <div class="sheet-head"><h3 id="expTitle">تصدير CSV</h3><button class="ghost-ic" data-close aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button></div>
+    <form id="exportForm" class="stack" novalidate>
+      <p class="note" style="margin:0">من أين تريد تصدير البيانات؟</p>
+      <label class="optrow"><input type="radio" name="expSrc" id="expCh" value="channel"><span><b>من قناة معينة</b><small>اختر القناة من القائمة</small></span></label>
+      <div id="expChannelWrap" hidden><select id="expChannel" class="input" aria-label="القناة"></select></div>
+      <label class="optrow"><input type="radio" name="expSrc" id="expAll" value="all" checked><span><b>من جميع القنوات</b><small>ملف واحد يضم معاملات كل قنواتك</small></span></label>
+      <label class="optrow" id="expMainRow" hidden><input type="radio" name="expSrc" id="expMain" value="main"><span><b>الدفتر الرئيسي</b><small>معاملات الدفتر الرئيسي (للأدمن)</small></span></label>
+      <p id="expNone" class="note" hidden>لا توجد قنوات للتصدير بعد.</p>
+      <div id="expErr" class="err" role="alert" hidden></div>
+      <div class="row-end">
+        <button type="button" class="btn btn-soft" data-close>إلغاء</button>
+        <button type="submit" id="expBtn" class="btn btn-primary"><i class="fa-solid fa-file-csv"></i>تصدير</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -275,14 +474,8 @@
 </div>
 
 <div id="toasts" class="toasts" aria-live="polite"></div>
-<script type="module" src="firebase.js"></script>
-<script type="module" src="auth.js"></script>
-<script type="module" src="state.js"></script>
-<script type="module" src="utils.js"></script>
-<script type="module" src="channels.js"></script>
-<script type="module" src="ledger.js"></script>
-<script type="module" src="users.js"></script>
-<script type="module" src="main.js"></script>
 
+<script type="module" src="main.js"></script>
 </body>
 </html>
+
