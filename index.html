@@ -1,5 +1,3 @@
-تم تعديل الكود وضبط مساحات شاشة الدخول وحل مشكلة قص أو اختفاء الجزء العلوي للمصباح على الهواتف والشاشات القصيرة (عن طريق تحويل المحاذاة العمودية إلى flex-start مع توزيع الهوامش بمرونة باستخدام margin: auto وتأمين الحوامش الآمنة safe-area-inset).
-إليك الكود كاملاً ومحدثاً:
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -32,7 +30,8 @@
 <link rel="modulepreload" href="ledger.js">
 <link rel="modulepreload" href="channels.js">
 
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@500;700&display=swap"></noscript>
 <!-- أيقونات التطبيق: تُحمَّل دون تعطيل ظهور شاشة الدخول (الدخول يستخدم أيقونات مدمجة) -->
 <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
@@ -41,19 +40,19 @@
 <style>
   .auth{position:fixed;inset:0;z-index:60;overflow:auto;background:#0E1F1B;color:#E6F0EB;font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;transition:background-color .4s;-webkit-tap-highlight-color:transparent}
   .auth[hidden]{display:none}
+  .auth,.auth *{box-sizing:border-box}
   .auth.lamp-off{background:#060B0A}
   .auth.loading .lg-card{visibility:hidden}
   .lg-glow{position:fixed;left:50%;top:42%;width:min(95vw,680px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;
     background:radial-gradient(circle,rgba(60,195,165,.34) 0%,rgba(230,185,92,.10) 38%,rgba(15,107,92,.08) 60%,transparent 74%);transition:opacity .45s,transform .45s}
   .lamp-off .lg-glow{opacity:0;transform:translate(-50%,-50%) scale(.5)}
-  .lg-wrap{position:relative;z-index:1;min-height:100%;max-width:440px;margin:0 auto;padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px}
-  .lg-lamp{margin-top:auto}
-  .lg-lamp svg{display:block;width:min(170px,45vw);height:auto;overflow:visible}
+  .lg-wrap{position:relative;z-index:1;min-height:100%;max-width:440px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(18px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+  .lg-lamp svg{display:block;width:min(190px,50vw);height:auto;overflow:visible}
   .lamp-part{transition:filter .45s}
   .lamp-off .lamp-part{filter:brightness(.4) contrast(.85)}
   #cord-btn{cursor:pointer;outline:none}
   #cord-btn:focus-visible circle{stroke:#3CC3A5;stroke-width:2}
-  .lg-card{width:100%;background:rgba(10,24,21,.78);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:18px;box-shadow:0 24px 48px -12px rgba(0,0,0,.55);cursor:default;margin-bottom:auto}
+  .lg-card{width:100%;background:rgba(10,24,21,.78);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:18px;box-shadow:0 24px 48px -12px rgba(0,0,0,.55);cursor:default}
   .lg-head{display:flex;align-items:center;gap:.7rem;padding-bottom:.7rem;margin-bottom:.7rem;border-bottom:1px solid rgba(255,255,255,.1)}
   .lg-logo{width:36px;height:36px;border-radius:11px;background:rgba(60,195,165,.16);border:1px solid rgba(60,195,165,.4);color:#3CC3A5;display:grid;place-items:center;font:700 1.1rem 'Reem Kufi',sans-serif}
   .lg-head h1{margin:0;font:700 1.05rem 'Reem Kufi','IBM Plex Sans Arabic',sans-serif;color:#fff}
@@ -91,7 +90,6 @@
   .lg-google:hover:not(:disabled){border-color:#7FE9D0}
   .lg-google svg{width:16px;height:16px}
   .lg-out{justify-self:center}
-  .lg-tip{font-size:.68rem;color:#9FB3AB;background:rgba(3,10,8,.6);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:.25rem .8rem;margin-top:2px}
   .lg-spin{display:inline-block;width:18px;height:18px;border:2px solid rgba(5,32,26,.3);border-top-color:#05201A;border-radius:50%;animation:lgs .8s linear infinite;vertical-align:middle}
   @keyframes lgs{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion:reduce){.auth *{transition:none!important;animation:none!important}}
@@ -111,6 +109,7 @@
 
 <!-- ================= شاشة الدخول والتسجيل (المصباح) ================= -->
 <div id="auth" class="auth">
+  <noscript><p style="position:relative;z-index:2;margin:0;padding:1rem;text-align:center;background:#3A1D1A;color:#FFC0B9">يتطلب هذا التطبيق تفعيل JavaScript في المتصفح.</p></noscript>
   <div class="lg-glow"></div>
   <div class="lg-wrap">
     <div class="lg-lamp">
@@ -156,12 +155,12 @@
         <div class="lg-field" id="f-name" hidden>
           <label for="aName">الاسم الرباعي كاملاً</label>
           <div class="lg-in"><svg class="ic"><use href="#i-user"/></svg>
-            <input type="text" id="aName" placeholder="الاسم الأول والثاني والثالث والرابع" autocomplete="name" maxlength="80"></div>
+            <input type="text" id="aName" placeholder="الاسم الأول والثاني والثالث والرابع" autocomplete="name" spellcheck="false" maxlength="80"></div>
         </div>
         <div class="lg-field" id="f-email">
           <label for="aEmail">البريد الإلكتروني</label>
           <div class="lg-in"><svg class="ic"><use href="#i-mail"/></svg>
-            <input type="email" id="aEmail" dir="auto" placeholder="name@example.com" autocomplete="email" maxlength="120"></div>
+            <input type="email" id="aEmail" dir="auto" placeholder="name@example.com" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="120"></div>
         </div>
         <div class="lg-field" id="f-pass">
           <label for="aPass">كلمة المرور</label>
@@ -190,7 +189,6 @@
         <button type="button" id="aLogout" class="lg-link lg-out" hidden>تسجيل الخروج</button>
       </form>
     </div>
-    <div class="lg-tip">اضغط خارج البطاقة لتشغيل المصباح أو إطفائه</div>
   </div>
 </div>
 <script>
@@ -478,4 +476,3 @@
 <script type="module" src="main.js"></script>
 </body>
 </html>
-
